@@ -3,3 +3,4 @@ ssv2
 __pycache__/
 externals/*
 checkpoints/*
+images/*

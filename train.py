@@ -5,26 +5,26 @@ import deepspeed
 from models.teacher import load_teacher
 from args import Args
 
+args = Args()
+
+
 from config.dataset_config import get_dataset_config
 
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 from datasets.video_dataset import build_video_dataset
 import torch
 from PIL import Image
 import numpy as np
-import sys
-
-sys.path.append("AcE/externals/VideoMAE")
 
 
 def generate_dataset(args):
 
     video_dataset, video_dataloader = build_video_dataset(args)
-
-    sample = video_dataset[310]
+    video_dataset.get_whole_video_switch()
+    sample = video_dataset[200]
 
     pil_img = Image.fromarray(sample[3])
     pil_img.save("image.jpg")

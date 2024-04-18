@@ -2,7 +2,7 @@ import argparse
 
 
 class Args(argparse.Namespace):
-    batch_size = 12  # default 64
+    batch_size = 1  # 12,  default 64
     epochs = 40
     update_freq = 1
     save_ckpt_freq = 10
@@ -96,3 +96,25 @@ class Args(argparse.Namespace):
     local_rank = -1
     dist_url = "env://"
     enable_deepspeed = True
+
+    # EgoHOS
+    mode = "twohands_obj2"
+
+    config_file_2h = "externals/EgoHOS/mmsegmentation/work_dirs/seg_twohands_ccda/seg_twohands_ccda.py"
+    checkpoint_file_2h = "externals/EgoHOS/mmsegmentation/work_dirs/seg_twohands_ccda/best_mIoU_iter_56000.pth"
+
+    config_file_cb = "externals/EgoHOS/mmsegmentation/work_dirs/twohands_to_cb_ccda/twohands_to_cb_ccda.py"
+    checkpoint_file_cb = "externals/EgoHOS/mmsegmentation/work_dirs/twohands_to_cb_ccda/best_mIoU_iter_76000.pth"
+
+    config_file_obj1 = "externals/EgoHOS/mmsegmentation/work_dirs/twohands_cb_to_obj1_ccda/twohands_cb_to_obj1_ccda.py"
+    checkpoint_file_obj1 = "externals/EgoHOS/mmsegmentation/work_dirs/twohands_cb_to_obj1_ccda/best_mIoU_iter_34000.pth"
+
+    config_file_obj2 = "externals/EgoHOS/mmsegmentation/work_dirs/twohands_cb_to_obj2_ccda/twohands_cb_to_obj2_ccda.py"
+    checkpoint_file_obj2 = "externals/EgoHOS/mmsegmentation/work_dirs/twohands_cb_to_obj2_ccda/best_mIoU_iter_32000.pth"
+
+    pred_seg_dir = ["images/2h", "images/cb", "images/obj2"]
+
+    img_dir = "images/raw"
+    vis_dir = "images/HOS_results"
+    twohands_dir = "images/2h"
+    obj2_dir = "images/obj2"

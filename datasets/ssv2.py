@@ -55,6 +55,7 @@ class SSVideoClsDataset(Dataset):
             raise ImportError(
                 "Unable to import `decord` which is required to read videos."
             )
+        self.get_whole_video = False
 
         import pandas as pd
 
@@ -71,6 +72,10 @@ class SSVideoClsDataset(Dataset):
                 ),
             ]
         )
+
+    def get_whole_video_switch(self):
+        self.get_whole_video = not self.get_whole_video
+        print(f"get_whole_video = {self.get_whole_video}")
 
     def loadvideo_decord(self, sample, sample_rate_scale=1):
         """Load video content using Decord"""
@@ -97,25 +102,28 @@ class SSVideoClsDataset(Dataset):
         except:
             print("video cannot be loaded by decord: ", fname)
             return []
-
         # handle temporal segments
-        average_duration = len(vr) // self.num_segment
-        all_index = []
-        if average_duration > 0:
-            all_index += list(
-                np.multiply(list(range(self.num_segment)), average_duration)
-                + np.random.randint(average_duration, size=self.num_segment)
-            )
-        elif len(vr) > self.num_segment:
-            all_index += list(
-                np.sort(np.random.randint(len(vr), size=self.num_segment))
-            )
+        if self.get_whole_video:
+            vr.seek(0)
+            return vr.get_batch(np.arange(0, len(vr))).asnumpy()
         else:
-            all_index += list(np.zeros((self.num_segment,)))
-        all_index = list(np.array(all_index))
-        vr.seek(0)
-        buffer = vr.get_batch(all_index).asnumpy()
-        return buffer
+            average_duration = len(vr) // self.num_segment
+            all_index = []
+            if average_duration > 0:
+                all_index += list(
+                    np.multiply(list(range(self.num_segment)), average_duration)
+                    + np.random.randint(average_duration, size=self.num_segment)
+                )
+            elif len(vr) > self.num_segment:
+                all_index += list(
+                    np.sort(np.random.randint(len(vr), size=self.num_segment))
+                )
+            else:
+                all_index += list(np.zeros((self.num_segment,)))
+            all_index = list(np.array(all_index))
+            vr.seek(0)
+            buffer = vr.get_batch(all_index).asnumpy()
+            return buffer
 
     def __getitem__(self, index):
         sample = self.dataset_samples[index]
@@ -128,14 +136,11 @@ class SSVideoClsDataset(Dataset):
                 index = np.random.randint(self.__len__())
                 sample = self.dataset_samples[index]
                 buffer = self.loadvideo_decord(sample)
-        first_frame = np.array(buffer[0])
-        buffer = self.data_transform(buffer)
-        return (
-            buffer,
-            self.label_array[index],
-            sample.split("/")[-1].split(".")[0],
-            first_frame,
-        )
+        if self.get_whole_video:
+            buffer = [buffer[i] for i in range(buffer.shape[0])]
+        else:
+            buffer = self.data_transform(buffer)
+        return (buffer, self.label_array[index], sample.split("/")[-1].split(".")[0])
 
     def __len__(self):
         return len(self.dataset_samples)
