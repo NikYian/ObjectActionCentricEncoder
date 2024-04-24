@@ -32,7 +32,9 @@ def build_video_dataset(args):
 
     assert nb_classes == args.nb_classes
 
-    sampler_test = torch.utils.data.SequentialSampler(dataset)
+    # sampler_test = torch.utils.data.SequentialSampler(dataset)
+    sampler_test = torch.utils.data.RandomSampler(dataset)
+
     data_loader = torch.utils.data.DataLoader(
         dataset,
         sampler=sampler_test,

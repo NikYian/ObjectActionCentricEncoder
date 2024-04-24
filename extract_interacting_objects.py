@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 
 from externals.EgoHOS.mmsegmentation.mmseg.apis import (
     inference_segmentor,
@@ -20,6 +20,7 @@ from args import Args
 import shutil
 from externals.EgoHOS.mmsegmentation.visualize import visualize
 from datasets.video_dataset import build_video_dataset
+from utils import seg_to_bb, image_wt_bb
 
 warnings.filterwarnings("ignore")
 args = Args()
@@ -54,53 +55,93 @@ for dir in args.pred_seg_dir:
 shutil.rmtree(args.img_dir, ignore_errors=True)
 os.makedirs(args.img_dir)
 
-labels = [
-    2,  # "Bending something so that it deforms"
-    3,  # "Bending something until it breaks"
-    5,  # "Closing something"
-    14,  # "Folding something"
-    22,  # "Letting something roll along a flat surface"
-    134,  # "Something falling like a feather or paper"
-    135,  # "Something falling like a rock"
-    143,  # "Squeezing something"
-    149,  # "Tearing something into two pieces"
-    150,  # "Tearing something just a little bit"
-    172,  # Unfolding something"
-]
+# object_labels = [3, 4, 5]
 
-for video in video_dataset:
-    if video[1] in labels:
-        for i, image in enumerate(video[0]):
-            imsave(
-                os.path.join(args.img_dir, str(video[1]) + "_" + str(i) + ".jpg"),
-                image.astype(np.uint8),
-            )
-        for file in tqdm(glob.glob(args.img_dir + "/*")):
-            fname = os.path.basename(file).split(".")[0]
-            img = np.array(Image.open(os.path.join(args.img_dir, fname + ".jpg")))
-            for i in range(3):
-                seg_result = inference_segmentor(models[i], file)[0]
+
+for indx, video in enumerate(video_dataloader):
+    for dir in args.pred_seg_dir:
+        shutil.rmtree(dir, ignore_errors=True)
+        os.makedirs(dir)
+    shutil.rmtree(args.img_dir, ignore_errors=True)
+    os.makedirs(args.img_dir)
+    shutil.rmtree(args.cb_view, ignore_errors=True)
+    os.makedirs(args.cb_view)
+    label = video[1][0].item()
+    for i, image in enumerate(video[0]):
+        image = image[0].numpy()
+        imsave(
+            os.path.join(args.img_dir, str(label) + "_" + str(i) + ".jpg"),
+            image.astype(np.uint8),
+        )
+    video_len = len(video[0])
+    cb_densities = [0] * video_len
+    obj_densities = [0] * video_len
+    obj_densities_labels = [0] * video_len
+
+    for file in tqdm(glob.glob(args.img_dir + "/*")):
+        fname = os.path.basename(file).split(".")[0]
+        img = np.array(Image.open(os.path.join(args.img_dir, fname + ".jpg")))
+        frame_num = int(fname.split("_")[1])
+        for i in range(3):
+            seg_result = inference_segmentor(models[i], file)[0]
+            if i == 1:  # model that predicts the contact boundary
+                cb_density = np.count_nonzero(seg_result == 1)
+                cb_densities[frame_num] = cb_density
                 imsave(
-                    os.path.join(args.pred_seg_dir[i], fname + ".png"),
-                    seg_result.astype(np.uint8),
+                    args.cb_view + "/" + fname + "_" + str(cb_density) + ".png",
+                    (seg_result * 255).astype(np.uint8),
                 )
 
-        visualize(args)
+            imsave(
+                os.path.join(args.pred_seg_dir[i], fname + ".png"),
+                seg_result.astype(np.uint8),
+            )
+            if i == 2:
+                seg_labels = np.unique(seg_result)
+                for seg_value in seg_labels:
+                    if seg_value != 0:
+                        obj_density = np.count_nonzero(seg_result == seg_value)
+                        obj_densities_labels[frame_num] = seg_value
+                        obj_densities[frame_num] = max(
+                            obj_densities[frame_num], obj_density
+                        )
 
-        breakpoint()
+    # closest to the mean cb density
+    # mean_density = np.mean(cb_densities)
+    # cb_densities = np.abs(cb_densities - mean_density)
+    # frame_num = np.argmin(cb_densities)
 
-    # seg_res = inference_segmentor(models[0], image)[0]
-#  video_dataset[0][0].shape (35, 240, 320, 3)
+    #  max cb density
+    #  biggest_cb_index = np.argmax(cb_densities)
 
+    # closest to the mean obj density
+    # mean_density = np.mean(obj_densities)
+    # obj_densities = np.abs(obj_densities - mean_density)
+    # frame_num = np.argmin(obj_densities)
 
-# model = init_segmentor(args.config_file_obj1, args.checkpoint_file_obj1, device=device)
+    # median obj density
+    sorted_indices = np.argsort(obj_densities)
+    median_index = len(obj_densities) // 2
+    frame_num = sorted_indices[median_index]
+    if obj_densities[frame_num] == 0:
+        # closest to the mean obj density
+        mean_density = np.mean(obj_densities)
+        obj_densities = np.abs(obj_densities - mean_density)
+        frame_num = np.argmin(obj_densities)
 
-# for file in tqdm(glob.glob(args.img_dir + "/*")):
-#     fname = os.path.basename(file).split(".")[0]
-#     img = np.array(Image.open(os.path.join(args.img_dir, fname + ".jpg")))
-#     seg_result = inference_segmentor(model, file)[0]
-#     imsave(
-#         os.path.join(args.pred_seg_dir[i], fname + ".png"),
-#         seg_result.astype(np.uint8),
-#     )
-#     breakpoint()
+    print(f"getting object at frame {frame_num}")
+    file = args.img_dir + "/" + str(label) + "_" + str(frame_num) + ".jpg"
+    seg_result = inference_segmentor(models[2], file)[0]
+    seg_labels = np.unique(seg_result)
+
+    img = np.array(Image.open(file))
+    obj_bb = seg_to_bb(seg_result, obj_densities_labels[frame_num])
+    imsave(
+        os.path.join(
+            args.tests_dir,
+            str(indx) + "_" + str(label) + "_" + video[2][0] + "_bb.png",
+        ),
+        image_wt_bb(img, obj_bb),
+    )
+
+    # visualize(args)

@@ -16,6 +16,22 @@ from torch.utils.data import Dataset
 import externals.VideoMAE.video_transforms as video_transforms
 import externals.VideoMAE.volume_transforms as volume_transforms
 
+labels_to_keep = [
+    2,  # "Bending something so that it deforms"
+    3,  # "Bending something until it breaks"
+    5,  # "Closing something"
+    14,  # "Folding something"
+    22,  # "Letting something roll along a flat surface" --
+    134,  # "Something falling like a feather or paper"
+    135,  # "Something falling like a rock"
+    143,  # "Squeezing something"
+    149,  # "Tearing something into two pieces"
+    150,  # "Tearing something just a little bit"
+    172,  # Unfolding something" --
+]
+
+# labels_to_keep = np.arange(0, 174)
+
 
 class SSVideoClsDataset(Dataset):
     """Load your own video classification dataset."""
@@ -60,8 +76,19 @@ class SSVideoClsDataset(Dataset):
         import pandas as pd
 
         cleaned = pd.read_csv(self.anno_path, header=None, delimiter=" ")
-        self.dataset_samples = list(cleaned.values[:, 0])
-        self.label_array = list(cleaned.values[:, 1])
+        cleaned_samples = np.array(cleaned.values[:, 0])
+        cleaned_labels = np.array(cleaned.values[:, 1])
+
+        indices_to_keep = [
+            i for i, label in enumerate(cleaned_labels) if label in labels_to_keep
+        ]
+
+        self.dataset_samples = cleaned_samples[indices_to_keep]
+        self.label_array = cleaned_labels[indices_to_keep]
+
+        # self.dataset_samples = list(cleaned.values[:, 0])
+        # self.label_array = list(cleaned.values[:, 1])
+
         self.data_transform = video_transforms.Compose(
             [
                 video_transforms.Resize(self.short_side_size, interpolation="bilinear"),

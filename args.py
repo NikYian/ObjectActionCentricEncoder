@@ -98,7 +98,7 @@ class Args(argparse.Namespace):
     enable_deepspeed = True
 
     # EgoHOS
-    mode = "twohands_obj2"
+    mode = "twohands_obj2"  # "cb","twohands_obj2"
 
     config_file_2h = "externals/EgoHOS/mmsegmentation/work_dirs/seg_twohands_ccda/seg_twohands_ccda.py"
     checkpoint_file_2h = "externals/EgoHOS/mmsegmentation/work_dirs/seg_twohands_ccda/best_mIoU_iter_56000.pth"
@@ -116,5 +116,15 @@ class Args(argparse.Namespace):
 
     img_dir = "images/raw"
     vis_dir = "images/HOS_results"
+    cb_dir = "images/cb"
     twohands_dir = "images/2h"
     obj2_dir = "images/obj2"
+
+    tests_dir = "images/tests"
+    cb_view = "images/cb_view"
+
+    # Interacting Object bbs from annotations
+    annotation_dir = "ssv2/annotations"
+
+    # object crops dir
+    obj_crop_dir = "ssv2/object_crops"
