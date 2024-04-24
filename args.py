@@ -1,4 +1,5 @@
 import argparse
+import torch
 
 
 class Args(argparse.Namespace):
@@ -126,5 +127,10 @@ class Args(argparse.Namespace):
     # Interacting Object bbs from annotations
     annotation_dir = "ssv2/annotations"
 
-    # object crops dir
+    # Image dataset dirs
     obj_crop_dir = "ssv2/object_crops"
+    VAE_features_dir = "ssv2/VAE_features"
+
+    # OAcE arguments
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    CLIP_model = "ViT-B/32"
