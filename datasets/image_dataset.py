@@ -6,54 +6,48 @@ import torch
 import numpy as np
 import tqdm
 from torchvision import transforms
-from torch.utils.data import Dataset
+from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
 
 from datasets.video_dataset import build_video_dataset
 from models.teacher import load_teacher
 import externals.VideoMAE.video_transforms as video_transforms
 import externals.VideoMAE.volume_transforms as volume_transforms
 
-"""
-This implementation is based on
-https://github.com/MCG-NJU/VideoMAE/blob/main/ssv2.py
-pulished under CC-BY-NC 4.0 license: https://github.com/MCG-NJU/VideoMAE/blob/main/LICENSE
-"""
-
 
 class OAcEImgDataset(Dataset):
     def __init__(self, args):
-        self.obj_crop_dir = args.obj_crop_dir
-        self.VAE_features_dir = args.VAE_features_dir
+        # self.obj_crop_dir = args.obj_crop_dir
+        # self.VAE_features_dir = args.VAE_features_dir
         _, self.preprocess = clip.load(args.CLIP_model, device=args.device)
 
-        cleaned_samples = np.array(cleaned.values[:, 0])
-        cleaned_labels = np.array(cleaned.values[:, 1])
-
+        self.sample_paths = [
+            os.path.join(args.obj_crop_dir, file)
+            for file in os.listdir(args.obj_crop_dir)
+        ]
+        self.label_paths = {
+            fname.split(".")[0]: os.path.join(args.VAE_features_dir, fname)
+            for fname in os.listdir(args.VAE_features_dir)
+        }
         self.data_transform = None
 
-        def __getitem__(self, index):
-            sample = self.dataset_samples[index]
-            buffer = self.loadvideo_decord(sample)
-            if len(buffer) == 0:
-                while len(buffer) == 0:
-                    warnings.warn(
-                        "video {} not correctly loaded during validation".format(sample)
-                    )
-                    index = np.random.randint(self.__len__())
-                    sample = self.dataset_samples[index]
-                    buffer = self.loadvideo_decord(sample)
-            if self.get_whole_video:
-                buffer = [buffer[i] for i in range(buffer.shape[0])]
-            else:
-                buffer = self.data_transform(buffer)
-            return (
-                buffer,
-                self.label_array[index],
-                sample.split("/")[-1].split(".")[0],
-            )
+    def __getitem__(self, index):
+        sample = Image.open(self.sample_paths[index])
+        sample = self.preprocess(sample).to(torch.float32)
+        fname = os.path.basename(self.sample_paths[index])
+        video_id = fname.split("_")[0]
+        object = fname.split("_")[1]
+        if object == "object" or object == "Object":
+            object_id = 0
+        elif object == "ball":
+            object_id = 1
+        else:
+            object_id = 0
+        label = np.load(self.label_paths[video_id])
+
+        return sample, label, object_id
 
     def __len__(self):
-        return len(self.dataset_samples)
+        return len(self.sample_paths)
 
 
 def object_bb_from_annotations(args):
@@ -129,3 +123,35 @@ def generate_image_dataset(args, gen_obj_crops=True, gen_VAE_features=True):
             features_numpy = features.cpu().detach().numpy().reshape(384)
             file_path = os.path.join(args.VAE_features_dir, video_id)
             np.save(file_path + ".npy", features_numpy)
+
+    # create torch Dataset and Dataloader classes
+    dataset = OAcEImgDataset(args)
+
+    torch.manual_seed(42)
+    indices = torch.randperm(len(dataset))
+
+    train_ratio = args.split_ratios[0]
+    val_ratio = args.split_ratios[1]
+
+    train_size = int(train_ratio * len(dataset))
+    val_size = int(val_ratio * len(dataset))
+
+    train_indices = indices[:train_size]
+    val_indices = indices[train_size : train_size + val_size]
+    test_indices = indices[train_size + val_size :]
+
+    train_sampler = SubsetRandomSampler(train_indices)
+    val_sampler = SubsetRandomSampler(val_indices)
+    test_sampler = SubsetRandomSampler(test_indices)
+
+    train_loader = DataLoader(
+        dataset, sampler=train_sampler, batch_size=args.AcE_batch_size
+    )
+    val_loader = DataLoader(
+        dataset, sampler=val_sampler, batch_size=args.AcE_batch_size
+    )
+    test_loader = DataLoader(
+        dataset, sampler=test_sampler, batch_size=args.AcE_batch_size
+    )
+
+    return dataset, train_loader, val_loader, test_loader

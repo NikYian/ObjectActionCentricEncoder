@@ -4,3 +4,4 @@ __pycache__/
 externals/*
 checkpoints/*
 images/*
+runs/*

@@ -82,7 +82,7 @@ class Args(argparse.Namespace):
     sampling_rate = 4
     data_set = "SSV2"
     output_dir = "runs/"
-    log_dir = "runs/"
+    log_dir = "runs"
     seed = 0
     resume = ""
     auto_resume = True
@@ -131,6 +131,10 @@ class Args(argparse.Namespace):
     obj_crop_dir = "ssv2/object_crops"
     VAE_features_dir = "ssv2/VAE_features"
 
-    # OAcE arguments
+    # AcE arguments
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
+    split_ratios = [0.7, 0.15, 0.15]
+    AcE_batch_size = 4
+    AcE_feature_size = 384
+    AcE_epochs = 40
