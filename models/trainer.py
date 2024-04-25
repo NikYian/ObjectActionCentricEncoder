@@ -7,11 +7,14 @@ from sklearn.metrics import accuracy_score
 from torch.utils.tensorboard import SummaryWriter
 import os
 import torch.nn.functional as F
+import json
+from tqdm import tqdm
 
 
 class AcE_Trainer:
     def __init__(
         self,
+        args,
         model,
         train_loader,
         val_loader,
@@ -32,9 +35,19 @@ class AcE_Trainer:
             os.makedirs(self.log_dir)
         self.writer = SummaryWriter(log_dir=self.log_dir)
 
+        args_file_path = os.path.join(self.log_dir, "arguments.json")
+
+        # Write the arguments to the file
+        with open(args_file_path, "w") as args_file:
+            json.dump(args.__dict__, args_file, indent=4)
+
     def train(self, num_epochs):
-        best_val_sim = 0.0
-        for epoch in range(num_epochs):
+        best_val_loss = float("inf")
+
+        pbar = tqdm(
+            range(num_epochs),
+        )
+        for epoch in pbar:
             self.model.train()
             running_loss = 0.0
             for i, (images, labels, obj_ids) in enumerate(self.train_loader):
@@ -56,30 +69,39 @@ class AcE_Trainer:
 
             epoch_loss = running_loss / len(self.train_loader.dataset)
             self.writer.add_scalar("epoch_training_loss", epoch_loss, epoch)
-            print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {epoch_loss:.4f}")
+            # print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {epoch_loss:.4f}")
 
-            val_sim = self.evaluate(self.val_loader)
-            self.writer.add_scalar("val_similarity", val_sim, epoch)
-            print(f"Epoch [{epoch+1}/{num_epochs}], Val Accuracy: {val_sim.item():.4f}")
+            val_loss = self.evaluate(self.val_loader)
+            self.writer.add_scalar("val_loss", val_loss, epoch)
+            # print(f"Epoch [{epoch+1}/{num_epochs}], Val Loss: {val_loss:.4f}")
 
             # Save the best model based on validation accuracy
-            if val_sim > best_val_sim:
-                best_val_sim = val_sim
+            if val_loss < best_val_loss:
+                best_val_loss = val_loss
                 torch.save(
                     self.model.head.state_dict(),
                     os.path.join(self.log_dir, "AcE_head_checkpoint.pth"),
                 )
-                print("Best model saved!")
+                # print("Best model saved!")
+            pbar.set_description(
+                desc=f"Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
+            )
 
     def evaluate(self, data_loader):
         self.model.eval()
+        total_loss = 0.0
+        num_batches = len(data_loader)
+
         with torch.no_grad():
             for images, target_features, labels in data_loader:
                 images = images.to(self.device)
-                target_features = labels.to(self.device)
+                target_features = target_features.to(self.device)
 
                 outputs = self.model(images)
 
-        similarity = F.mse_loss(outputs, target_features)
+                loss = self.criterion(outputs, target_features)
+                total_loss += loss.item()
 
-        return similarity
+        avg_loss = total_loss / num_batches
+
+        return avg_loss

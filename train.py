@@ -11,6 +11,7 @@ from args import Args
 from datasets.image_dataset import generate_image_dataset
 from models.AcE import AcE
 from models.trainer import AcE_Trainer
+from models.utils import get_criterion
 
 import torch.nn.functional as F
 
@@ -22,11 +23,18 @@ if __name__ == "__main__":
     )
     AcE = AcE(args).to(args.device)
 
-    criterion = F.mse_loss
-    optimizer = torch.optim.Adam(AcE.parameters(), lr=0.0001)
+    criterion = get_criterion(args)
+    optimizer = torch.optim.Adam(AcE.parameters(), lr=args.AcE_lr)
 
     trainer = AcE_Trainer(
-        AcE, train_loader, val_loader, criterion, optimizer, args.device, args.log_dir
+        args,
+        AcE,
+        train_loader,
+        val_loader,
+        criterion,
+        optimizer,
+        args.device,
+        args.log_dir,
     )
 
     trainer.train(num_epochs=args.AcE_epochs)
