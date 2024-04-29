@@ -10,9 +10,7 @@ import torch
 
 
 def build_video_dataset(args):
-    anno_path = None
-    anno_path = os.path.join(args.data_path, "ssv2.csv")
-
+    anno_path = args.anno_path
     dataset = SSVideoClsDataset(
         anno_path=anno_path,
         data_path="/",

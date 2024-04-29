@@ -30,16 +30,11 @@ class AcE_Trainer:
         self.optimizer = optimizer
         self.device = device
         self.log_dir = log_dir
+        self.args = args
 
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
         self.writer = SummaryWriter(log_dir=self.log_dir)
-
-        args_file_path = os.path.join(self.log_dir, "arguments.json")
-
-        # Write the arguments to the file
-        with open(args_file_path, "w") as args_file:
-            json.dump(args.__dict__, args_file, indent=4)
 
     def train(self, num_epochs):
         best_val_loss = float("inf")
@@ -50,7 +45,7 @@ class AcE_Trainer:
         for epoch in pbar:
             self.model.train()
             running_loss = 0.0
-            for i, (images, labels, obj_ids) in enumerate(self.train_loader):
+            for i, (images, labels, _, _) in enumerate(self.train_loader):
                 images = images.to(self.device)
                 labels = labels.to(self.device)
 
@@ -80,7 +75,7 @@ class AcE_Trainer:
                 best_val_loss = val_loss
                 torch.save(
                     self.model.head.state_dict(),
-                    os.path.join(self.log_dir, "AcE_head_checkpoint.pth"),
+                    os.path.join(self.log_dir, "AcE_head_" + str(epoch) + ".pth"),
                 )
                 # print("Best model saved!")
             pbar.set_description(
@@ -93,7 +88,7 @@ class AcE_Trainer:
         num_batches = len(data_loader)
 
         with torch.no_grad():
-            for images, target_features, labels in data_loader:
+            for images, target_features, _, _ in data_loader:
                 images = images.to(self.device)
                 target_features = target_features.to(self.device)
 

@@ -74,6 +74,8 @@ class Args(argparse.Namespace):
 
     # Dataset parameters
     data_path = "ssv2"
+    anno_path = "ssv2/ssv2.csv"
+    ssv2_labels = "ssv2/labels.json"
     eval_data_path = None
     nb_classes = 174
     imagenet_default_mean_and_std = True
@@ -140,3 +142,4 @@ class Args(argparse.Namespace):
     AcE_epochs = 500
     AcE_criterion = "SmoothL1Loss"  # "MSE"
     AcE_lr = 0.0001
+    AcE_checkpoint = "runs/AcE_head_500.pth"

@@ -1,10 +1,10 @@
 from timm.models import create_model
 import torch
-import modeling_finetune
 from collections import OrderedDict
 import externals.VideoMAE.utils as utils
 import numpy as np
 import torch.backends.cudnn as cudnn
+from externals.VideoMAE import modeling_finetune
 
 
 def load_teacher(args):

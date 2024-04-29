@@ -102,7 +102,7 @@ class SSVideoClsDataset(Dataset):
 
     def get_whole_video_switch(self):
         self.get_whole_video = not self.get_whole_video
-        print(f"get_whole_video = {self.get_whole_video}")
+        # print(f"get_whole_video = {self.get_whole_video}")
 
     def loadvideo_decord(self, sample, sample_rate_scale=1):
         """Load video content using Decord"""

@@ -41,10 +41,10 @@ class OAcEImgDataset(Dataset):
         elif object == "ball":
             object_id = 1
         else:
-            object_id = 0
+            object_id = 2
         label = np.load(self.label_paths[video_id])
 
-        return sample, label, object_id
+        return sample, label, object_id, video_id
 
     def __len__(self):
         return len(self.sample_paths)
@@ -58,7 +58,8 @@ def object_bb_from_annotations(args):
                             }
     """
     interacting_object_bb = {}
-    for root, _, files in os.walk(args.annotation_dir):
+    for root, dir, files in os.walk(args.annotation_dir):
+        print(dir)
         for filename in files:
             filepath = os.path.join(root, filename)
             video_id = filename.split(".")[0]
