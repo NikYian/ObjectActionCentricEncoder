@@ -1,0 +1,78 @@
+{
+    "size": {
+        "height": 240,
+        "width": 427
+    },
+    "description": "",
+    "key": "a964ab3ca01a4f1bb098ff8ec5fdb3db",
+    "tags": [],
+    "objects": [
+        {
+            "key": "a3dc59a138de4f2a94545b0f7b32a1bd",
+            "classTitle": "Object",
+            "tags": [],
+            "labelerLogin": "NikYian",
+            "updatedAt": "2024-04-24T12:50:56.094Z",
+            "createdAt": "2024-04-24T12:50:56.094Z"
+        }
+    ],
+    "frames": [
+        {
+            "index": 0,
+            "figures": [
+                {
+                    "key": "eb80f4a703bb4566b7091cbe1c46623a",
+                    "objectKey": "a3dc59a138de4f2a94545b0f7b32a1bd",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    75,
+                                    7
+                                ],
+                                [
+                                    426,
+                                    215
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-24T12:50:56.524Z",
+                    "createdAt": "2024-04-24T12:50:56.524Z"
+                }
+            ]
+        },
+        {
+            "index": 7,
+            "figures": [
+                {
+                    "key": "f2b8b87b3a2f4acd81bb8a8dba36f50c",
+                    "objectKey": "a3dc59a138de4f2a94545b0f7b32a1bd",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    36,
+                                    14
+                                ],
+                                [
+                                    426,
+                                    223
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-24T12:50:56.524Z",
+                    "createdAt": "2024-04-24T12:50:56.524Z"
+                }
+            ]
+        }
+    ],
+    "framesCount": 54
+}

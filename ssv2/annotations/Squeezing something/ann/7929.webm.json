@@ -1,0 +1,50 @@
+{
+    "size": {
+        "height": 240,
+        "width": 427
+    },
+    "description": "",
+    "key": "b7ba5f44713c402d8867595b497f30b0",
+    "tags": [],
+    "objects": [
+        {
+            "key": "dcca0827dabc4c429d49a8cfb30df74b",
+            "classTitle": "object",
+            "tags": [],
+            "labelerLogin": "NikYian",
+            "updatedAt": "2024-04-24T12:32:34.784Z",
+            "createdAt": "2024-04-24T12:32:34.784Z"
+        }
+    ],
+    "frames": [
+        {
+            "index": 0,
+            "figures": [
+                {
+                    "key": "035e1f1b5cf94a308645b1a3c9208199",
+                    "objectKey": "dcca0827dabc4c429d49a8cfb30df74b",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    199,
+                                    0
+                                ],
+                                [
+                                    286,
+                                    238
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-24T12:32:35.175Z",
+                    "createdAt": "2024-04-24T12:32:35.175Z"
+                }
+            ]
+        }
+    ],
+    "framesCount": 57
+}

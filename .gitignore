@@ -1,5 +1,8 @@
 
-ssv2
+ssv2/webm/*
+ssv2/mp4/*
+ssv2/object_crops/*
+ssv2/VAE_features/*
 __pycache__/
 externals/*
 checkpoints/*

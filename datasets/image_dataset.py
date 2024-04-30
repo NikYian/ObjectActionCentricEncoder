@@ -59,7 +59,6 @@ def object_bb_from_annotations(args):
     """
     interacting_object_bb = {}
     for root, dir, files in os.walk(args.annotation_dir):
-        print(dir)
         for filename in files:
             filepath = os.path.join(root, filename)
             video_id = filename.split(".")[0]
@@ -88,13 +87,20 @@ def generate_image_dataset(args, gen_obj_crops=True, gen_VAE_features=True):
     video_dataset.get_whole_video_switch()
     iobb = object_bb_from_annotations(args)  # iobb = interacting object bounding boxes
 
+    ids = []
+    for video in video_dataset:
+        ids.append(video[2])
+
+    breakpoint()
     # generate object crops
     if gen_obj_crops:
         for video in video_dataset:
             video_id = video[2]
+            print(video_id)
             if video_id in iobb:
                 bbs = iobb[video_id]["bounding_boxes"]
                 object = iobb[video_id]["object"]
+
                 frames = video[0]
                 for frame, bb in bbs.items():
                     xmin, ymin, xmax, ymax = bb

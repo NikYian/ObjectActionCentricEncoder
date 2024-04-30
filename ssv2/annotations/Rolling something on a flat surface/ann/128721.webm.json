@@ -1,0 +1,974 @@
+{
+    "size": {
+        "height": 240,
+        "width": 427
+    },
+    "description": "",
+    "key": "1ed34853b2cf43e19f2095faba17ef0c",
+    "tags": [],
+    "objects": [
+        {
+            "key": "b68d9c618a2a424ab0785a6ebb0551af",
+            "classTitle": "object",
+            "tags": [],
+            "labelerLogin": "NikYian",
+            "updatedAt": "2024-04-23T09:25:49.031Z",
+            "createdAt": "2024-04-23T09:25:49.031Z"
+        }
+    ],
+    "frames": [
+        {
+            "index": 25,
+            "figures": [
+                {
+                    "key": "73f2dab92a174f6d8f1176af1ad0bb54",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    143,
+                                    46
+                                ],
+                                [
+                                    337,
+                                    235
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:25:51.041Z",
+                    "createdAt": "2024-04-23T09:25:51.041Z"
+                }
+            ]
+        },
+        {
+            "index": 26,
+            "figures": [
+                {
+                    "key": "77443aa1ca2242eeb04b1c678ab976c8",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    151,
+                                    41
+                                ],
+                                [
+                                    331,
+                                    225
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:25:56.520Z",
+                    "createdAt": "2024-04-23T09:25:56.520Z"
+                }
+            ]
+        },
+        {
+            "index": 27,
+            "figures": [
+                {
+                    "key": "1dea7a4bd74743849d6a5afa8112d817",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    156,
+                                    38
+                                ],
+                                [
+                                    329,
+                                    214
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:25:57.208Z",
+                    "createdAt": "2024-04-23T09:25:57.208Z"
+                }
+            ]
+        },
+        {
+            "index": 28,
+            "figures": [
+                {
+                    "key": "3b06ae7bac5e48b2ace221bbc3036c15",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    159,
+                                    35
+                                ],
+                                [
+                                    330,
+                                    205
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:25:57.744Z",
+                    "createdAt": "2024-04-23T09:25:57.744Z"
+                }
+            ]
+        },
+        {
+            "index": 29,
+            "figures": [
+                {
+                    "key": "8c50258e59334e3aa8e8bc3e51cfd7a2",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    164,
+                                    32
+                                ],
+                                [
+                                    329,
+                                    196
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:25:58.283Z",
+                    "createdAt": "2024-04-23T09:25:58.283Z"
+                }
+            ]
+        },
+        {
+            "index": 30,
+            "figures": [
+                {
+                    "key": "0467cc52bbf148c0839bac7ce1adc9aa",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    168,
+                                    30
+                                ],
+                                [
+                                    329,
+                                    191
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:25:58.838Z",
+                    "createdAt": "2024-04-23T09:25:58.838Z"
+                }
+            ]
+        },
+        {
+            "index": 31,
+            "figures": [
+                {
+                    "key": "42fd7fa9973e4503bc5a0d6e3f70eefb",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    174,
+                                    28
+                                ],
+                                [
+                                    329,
+                                    183
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:25:59.371Z",
+                    "createdAt": "2024-04-23T09:25:59.371Z"
+                }
+            ]
+        },
+        {
+            "index": 32,
+            "figures": [
+                {
+                    "key": "8b29bf1645cd4e9ca80a7148b41378c0",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    177,
+                                    24
+                                ],
+                                [
+                                    329,
+                                    177
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:25:59.877Z",
+                    "createdAt": "2024-04-23T09:25:59.877Z"
+                }
+            ]
+        },
+        {
+            "index": 33,
+            "figures": [
+                {
+                    "key": "a3c727444c7e47509012d1fd89af2009",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    182,
+                                    24
+                                ],
+                                [
+                                    330,
+                                    171
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:00.477Z",
+                    "createdAt": "2024-04-23T09:26:00.477Z"
+                }
+            ]
+        },
+        {
+            "index": 34,
+            "figures": [
+                {
+                    "key": "a23771d489604f7a8af978c8a46f32ab",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    186,
+                                    22
+                                ],
+                                [
+                                    330,
+                                    166
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:01.191Z",
+                    "createdAt": "2024-04-23T09:26:01.191Z"
+                }
+            ]
+        },
+        {
+            "index": 35,
+            "figures": [
+                {
+                    "key": "470862eb5a1f4a4b8795fb2c902b894b",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    189,
+                                    21
+                                ],
+                                [
+                                    332,
+                                    163
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:01.714Z",
+                    "createdAt": "2024-04-23T09:26:01.714Z"
+                }
+            ]
+        },
+        {
+            "index": 36,
+            "figures": [
+                {
+                    "key": "de75345a90004ab0babb262475ecce09",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    192,
+                                    19
+                                ],
+                                [
+                                    330,
+                                    157
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:07.497Z",
+                    "createdAt": "2024-04-23T09:26:07.497Z"
+                }
+            ]
+        },
+        {
+            "index": 37,
+            "figures": [
+                {
+                    "key": "b77703d3994848679777f5f0965333df",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    195,
+                                    18
+                                ],
+                                [
+                                    332,
+                                    154
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:08.008Z",
+                    "createdAt": "2024-04-23T09:26:08.008Z"
+                }
+            ]
+        },
+        {
+            "index": 38,
+            "figures": [
+                {
+                    "key": "56508e93daca4f589d319bb11f7b6d15",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    199,
+                                    17
+                                ],
+                                [
+                                    335,
+                                    149
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:08.522Z",
+                    "createdAt": "2024-04-23T09:26:08.522Z"
+                }
+            ]
+        },
+        {
+            "index": 39,
+            "figures": [
+                {
+                    "key": "dbd38757b70c429c8203bf20780117f4",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    201,
+                                    15
+                                ],
+                                [
+                                    333,
+                                    145
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:09.050Z",
+                    "createdAt": "2024-04-23T09:26:09.050Z"
+                }
+            ]
+        },
+        {
+            "index": 40,
+            "figures": [
+                {
+                    "key": "920286fc816f47e7b4138f672ffabf77",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    205,
+                                    14
+                                ],
+                                [
+                                    335,
+                                    141
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:09.629Z",
+                    "createdAt": "2024-04-23T09:26:09.629Z"
+                }
+            ]
+        },
+        {
+            "index": 41,
+            "figures": [
+                {
+                    "key": "b7a5aad70fb74757816dd982678c67fc",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    207,
+                                    13
+                                ],
+                                [
+                                    336,
+                                    139
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:10.305Z",
+                    "createdAt": "2024-04-23T09:26:10.305Z"
+                }
+            ]
+        },
+        {
+            "index": 42,
+            "figures": [
+                {
+                    "key": "50447fd05b264182aacbc19df4e733e7",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    210,
+                                    12
+                                ],
+                                [
+                                    338,
+                                    135
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:10.854Z",
+                    "createdAt": "2024-04-23T09:26:10.854Z"
+                }
+            ]
+        },
+        {
+            "index": 43,
+            "figures": [
+                {
+                    "key": "50eeb4398e90448ea278cc4845a41f3b",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    212,
+                                    12
+                                ],
+                                [
+                                    340,
+                                    133
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:11.420Z",
+                    "createdAt": "2024-04-23T09:26:11.420Z"
+                }
+            ]
+        },
+        {
+            "index": 44,
+            "figures": [
+                {
+                    "key": "b8702d72b08d49aebc5757cb7e5d4168",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    215,
+                                    11
+                                ],
+                                [
+                                    340,
+                                    130
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:12.241Z",
+                    "createdAt": "2024-04-23T09:26:12.241Z"
+                }
+            ]
+        },
+        {
+            "index": 45,
+            "figures": [
+                {
+                    "key": "4c616c01364d4eadb88f4d960de13923",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    217,
+                                    9
+                                ],
+                                [
+                                    339,
+                                    127
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:15.745Z",
+                    "createdAt": "2024-04-23T09:26:15.745Z"
+                }
+            ]
+        },
+        {
+            "index": 46,
+            "figures": [
+                {
+                    "key": "052db3e2d73e467fbad81250590eade7",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    220,
+                                    8
+                                ],
+                                [
+                                    340,
+                                    124
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:16.271Z",
+                    "createdAt": "2024-04-23T09:26:16.271Z"
+                }
+            ]
+        },
+        {
+            "index": 47,
+            "figures": [
+                {
+                    "key": "d05bd88adb184dffb70a591359d042f9",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    221,
+                                    8
+                                ],
+                                [
+                                    341,
+                                    122
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:16.825Z",
+                    "createdAt": "2024-04-23T09:26:16.825Z"
+                }
+            ]
+        },
+        {
+            "index": 48,
+            "figures": [
+                {
+                    "key": "7b1918c2b3a24acc8794339cd392a8c6",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    223,
+                                    7
+                                ],
+                                [
+                                    342,
+                                    120
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:17.397Z",
+                    "createdAt": "2024-04-23T09:26:17.397Z"
+                }
+            ]
+        },
+        {
+            "index": 49,
+            "figures": [
+                {
+                    "key": "cd5bc22eab784470a0ae1a821265ee7a",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    225,
+                                    6
+                                ],
+                                [
+                                    343,
+                                    118
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:18.159Z",
+                    "createdAt": "2024-04-23T09:26:18.159Z"
+                }
+            ]
+        },
+        {
+            "index": 50,
+            "figures": [
+                {
+                    "key": "82357bdfbf1c441298154eba572d19a6",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    226,
+                                    6
+                                ],
+                                [
+                                    343,
+                                    117
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:19.006Z",
+                    "createdAt": "2024-04-23T09:26:19.006Z"
+                }
+            ]
+        },
+        {
+            "index": 51,
+            "figures": [
+                {
+                    "key": "29b1e2cb55074d20b54038d94e0dc949",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    228,
+                                    5
+                                ],
+                                [
+                                    345,
+                                    116
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:19.540Z",
+                    "createdAt": "2024-04-23T09:26:19.540Z"
+                }
+            ]
+        },
+        {
+            "index": 52,
+            "figures": [
+                {
+                    "key": "238a21f6e3cd40c888ab7bb15ce8139a",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    229,
+                                    5
+                                ],
+                                [
+                                    346,
+                                    115
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:20.108Z",
+                    "createdAt": "2024-04-23T09:26:20.108Z"
+                }
+            ]
+        },
+        {
+            "index": 53,
+            "figures": [
+                {
+                    "key": "23d666a1ce014f98b3d19b0431d75f85",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    229,
+                                    6
+                                ],
+                                [
+                                    346,
+                                    115
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:20.670Z",
+                    "createdAt": "2024-04-23T09:26:20.670Z"
+                }
+            ]
+        },
+        {
+            "index": 54,
+            "figures": [
+                {
+                    "key": "8d57ffd6c3a6473ab2d58c061ab8fa87",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    229,
+                                    5
+                                ],
+                                [
+                                    347,
+                                    115
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:21.213Z",
+                    "createdAt": "2024-04-23T09:26:21.213Z"
+                }
+            ]
+        },
+        {
+            "index": 55,
+            "figures": [
+                {
+                    "key": "343b8c4f17f246e2833e62f6a945db33",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    229,
+                                    3
+                                ],
+                                [
+                                    345,
+                                    114
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:25.440Z",
+                    "createdAt": "2024-04-23T09:26:25.440Z"
+                }
+            ]
+        },
+        {
+            "index": 56,
+            "figures": [
+                {
+                    "key": "b3abe7efe69841458f1b884fbcf3a8e6",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    230,
+                                    4
+                                ],
+                                [
+                                    346,
+                                    114
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:25.974Z",
+                    "createdAt": "2024-04-23T09:26:25.974Z"
+                }
+            ]
+        },
+        {
+            "index": 57,
+            "figures": [
+                {
+                    "key": "10584c1fd2094f88bb15b52cb9dedc89",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    229,
+                                    4
+                                ],
+                                [
+                                    345,
+                                    115
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:26.467Z",
+                    "createdAt": "2024-04-23T09:26:26.467Z"
+                }
+            ]
+        },
+        {
+            "index": 58,
+            "figures": [
+                {
+                    "key": "d12a1c58c16c4f70a1c4d481377cc602",
+                    "objectKey": "b68d9c618a2a424ab0785a6ebb0551af",
+                    "geometryType": "rectangle",
+                    "geometry": {
+                        "points": {
+                            "exterior": [
+                                [
+                                    229,
+                                    5
+                                ],
+                                [
+                                    346,
+                                    115
+                                ]
+                            ],
+                            "interior": []
+                        }
+                    },
+                    "labelerLogin": "NikYian",
+                    "updatedAt": "2024-04-23T09:26:27.175Z",
+                    "createdAt": "2024-04-23T09:26:27.175Z"
+                }
+            ]
+        }
+    ],
+    "framesCount": 59
+}
