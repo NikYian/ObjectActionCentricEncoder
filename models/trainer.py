@@ -9,6 +9,7 @@ import os
 import torch.nn.functional as F
 import json
 from tqdm import tqdm
+import glob
 
 
 class AcE_Trainer:
@@ -73,6 +74,11 @@ class AcE_Trainer:
             # Save the best model based on validation accuracy
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
+
+                pth_files = glob.glob(os.path.join(self.log_dir, "*.pth"))
+                for pth_file in pth_files:
+                    os.remove(pth_file)
+
                 torch.save(
                     self.model.head.state_dict(),
                     os.path.join(self.log_dir, "AcE_head_" + str(epoch) + ".pth"),

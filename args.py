@@ -136,10 +136,10 @@ class Args(argparse.Namespace):
     # AcE arguments
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
-    split_ratios = [0.7, 0.15, 0.15]
-    AcE_batch_size = 60
+    split_ratios = [0.6, 0.2, 0.2]
+    AcE_batch_size = 360
     AcE_feature_size = 384
-    AcE_epochs = 500
+    AcE_epochs = 100
     AcE_criterion = "SmoothL1Loss"  # "MSE"
     AcE_lr = 0.0001
-    AcE_checkpoint = "runs/AcE_head_500.pth"
+    AcE_checkpoint = "runs/AcE_head_91.pth"

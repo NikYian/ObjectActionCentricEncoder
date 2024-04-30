@@ -5,8 +5,7 @@ import clip
 import torch
 import numpy as np
 import tqdm
-from torchvision import transforms
-from torch.utils.data import Dataset, SubsetRandomSampler, DataLoader
+from torch.utils.data import Dataset
 
 from datasets.video_dataset import build_video_dataset
 from models.teacher import load_teacher
@@ -87,20 +86,13 @@ def generate_image_dataset(args, gen_obj_crops=True, gen_VAE_features=True):
     video_dataset.get_whole_video_switch()
     iobb = object_bb_from_annotations(args)  # iobb = interacting object bounding boxes
 
-    ids = []
-    for video in video_dataset:
-        ids.append(video[2])
-
-    breakpoint()
     # generate object crops
     if gen_obj_crops:
-        for video in video_dataset:
+        for video in tqdm.tqdm(video_dataset):
             video_id = video[2]
-            print(video_id)
             if video_id in iobb:
                 bbs = iobb[video_id]["bounding_boxes"]
                 object = iobb[video_id]["object"]
-
                 frames = video[0]
                 for frame, bb in bbs.items():
                     xmin, ymin, xmax, ymax = bb
@@ -134,31 +126,4 @@ def generate_image_dataset(args, gen_obj_crops=True, gen_VAE_features=True):
     # create torch Dataset and Dataloader classes
     dataset = OAcEImgDataset(args)
 
-    torch.manual_seed(42)
-    indices = torch.randperm(len(dataset))
-
-    train_ratio = args.split_ratios[0]
-    val_ratio = args.split_ratios[1]
-
-    train_size = int(train_ratio * len(dataset))
-    val_size = int(val_ratio * len(dataset))
-
-    train_indices = indices[:train_size]
-    val_indices = indices[train_size : train_size + val_size]
-    test_indices = indices[train_size + val_size :]
-
-    train_sampler = SubsetRandomSampler(train_indices)
-    val_sampler = SubsetRandomSampler(val_indices)
-    test_sampler = SubsetRandomSampler(test_indices)
-
-    train_loader = DataLoader(
-        dataset, sampler=train_sampler, batch_size=args.AcE_batch_size
-    )
-    val_loader = DataLoader(
-        dataset, sampler=val_sampler, batch_size=args.AcE_batch_size
-    )
-    test_loader = DataLoader(
-        dataset, sampler=test_sampler, batch_size=args.AcE_batch_size
-    )
-
-    return dataset, train_loader, val_loader, test_loader
+    return dataset

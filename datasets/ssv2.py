@@ -21,13 +21,14 @@ labels_to_keep = [
     3,  # "Bending something until it breaks"
     5,  # "Closing something"
     14,  # "Folding something"
-    22,  # "Letting something roll along a flat surface" --
+    22,  # "Letting something roll along a flat surface"
+    122,  # "Rolling something on a flat surface"
     134,  # "Something falling like a feather or paper"
     135,  # "Something falling like a rock"
     143,  # "Squeezing something"
     149,  # "Tearing something into two pieces"
     150,  # "Tearing something just a little bit"
-    172,  # Unfolding something" --
+    172,  # Unfolding something"
 ]
 
 # labels_to_keep = np.arange(0, 174)

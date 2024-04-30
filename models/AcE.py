@@ -32,4 +32,5 @@ class get_AcE(nn.Module):
         clip_features = self.clip.encode_image(images)
         features = self.head(clip_features)
         ssv2_label_logits = self.ac_head(features)
-        return ssv2_label_logits.topk(k=5, dim=-1).indices
+        res = torch.nn.functional.softmax(ssv2_label_logits, dim=-1)
+        return res[:, 122], res[:, 144]
