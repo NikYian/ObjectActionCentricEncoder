@@ -16,20 +16,20 @@ from torch.utils.data import Dataset
 import externals.VideoMAE.video_transforms as video_transforms
 import externals.VideoMAE.volume_transforms as volume_transforms
 
-labels_to_keep = [
-    2,  # "Bending something so that it deforms"
-    3,  # "Bending something until it breaks"
-    5,  # "Closing something"
-    14,  # "Folding something"
-    22,  # "Letting something roll along a flat surface"
-    122,  # "Rolling something on a flat surface"
-    134,  # "Something falling like a feather or paper"
-    135,  # "Something falling like a rock"
-    143,  # "Squeezing something"
-    149,  # "Tearing something into two pieces"
-    150,  # "Tearing something just a little bit"
-    172,  # Unfolding something"
-]
+# labels_to_keep = [
+#     2,  # "Bending something so that it deforms"
+#     3,  # "Bending something until it breaks"
+#     5,  # "Closing something"
+#     14,  # "Folding something"
+#     22,  # "Letting something roll along a flat surface"
+#     122,  # "Rolling something on a flat surface"
+#     134,  # "Something falling like a feather or paper"
+#     135,  # "Something falling like a rock"
+#     143,  # "Squeezing something"
+#     149,  # "Tearing something into two pieces"
+#     150,  # "Tearing something just a little bit"
+#     172,  # Unfolding something"
+# ]
 
 # labels_to_keep = np.arange(0, 174)
 
@@ -81,7 +81,7 @@ class SSVideoClsDataset(Dataset):
         cleaned_labels = np.array(cleaned.values[:, 1])
 
         indices_to_keep = [
-            i for i, label in enumerate(cleaned_labels) if label in labels_to_keep
+            i for i, label in enumerate(cleaned_labels) if label in args.labels_to_keep
         ]
 
         self.dataset_samples = cleaned_samples[indices_to_keep]
@@ -168,7 +168,11 @@ class SSVideoClsDataset(Dataset):
             buffer = [buffer[i] for i in range(buffer.shape[0])]
         else:
             buffer = self.data_transform(buffer)
-        return (buffer, self.label_array[index], sample.split("/")[-1].split(".")[0])
+        return (
+            buffer,
+            self.args.ss2affordance[self.label_array[index]],
+            sample.split("/")[-1].split(".")[0],
+        )
 
     def __len__(self):
         return len(self.dataset_samples)

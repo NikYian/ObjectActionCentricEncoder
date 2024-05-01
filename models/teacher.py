@@ -5,10 +5,12 @@ import externals.VideoMAE.utils as utils
 import numpy as np
 import torch.backends.cudnn as cudnn
 from externals.VideoMAE import modeling_finetune
+from torch import nn
+from torch.nn.functional import softmax
 
 
-def load_teacher(args):
-    device = torch.device("cuda")
+def load_teacher(args, aff_head=True):
+    device = args.device
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()
     torch.manual_seed(seed)
@@ -50,5 +52,54 @@ def load_teacher(args):
             new_dict[key] = checkpoint_model[key]
     checkpoint_model = new_dict
     utils.load_state_dict(teacher, checkpoint_model, prefix=args.model_prefix)
+
+    if aff_head:
+        teacher = TeacherWtAffHead(teacher, args)
     teacher.to(device)
     return teacher
+
+
+class TeacherWtAffHead(nn.Module):
+    def __init__(self, teacher, args):
+        super(TeacherWtAffHead, self).__init__()
+        self.args = args
+
+        self.VAE = teacher
+        for param in self.VAE.parameters():  # CLIP params are frozen
+            param.requires_grad = False
+
+        output_sice = (
+            len(args.affordance_decoder) * 2
+        ) - 2  # all affordances have a "negative" apart from the two last options
+
+        self.head = nn.Linear(args.AcE_feature_size, output_sice)
+
+        if args.teacher_head_checkpoint:
+            checkpoint = torch.load(args.teacher_head_checkpoint)
+            self.head.load_state_dict(checkpoint)
+
+    def forward(self, clips):
+        VAE_features = self.VAE.forward_features(clips)
+        affordance_logits = self.head(VAE_features)
+
+        # apply softmax in pairs of 2
+        reshaped_tensor = affordance_logits.view(-1, 2)
+        softmaxed_pairs = softmax(reshaped_tensor, dim=1)
+        output = softmaxed_pairs.view(affordance_logits.size())
+        return output
+
+    def aff(self, clips):
+        self.eval()
+        batch_size = clips.shape[0]
+
+        res = self.forward(clips).cpu().detach().numpy().astype(np.float32)
+        res_dicts = []
+        for clip_res in res:
+            dict = {}
+            for aff, indx in self.args.affordance_teacher_decoder.items():
+                dict[aff] = clip_res[indx]
+            res_dicts.append(dict)
+
+        return res
+        # res = res.view(-1, 2)
+        # res  = res[

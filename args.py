@@ -3,7 +3,7 @@ import torch
 
 
 class Args(argparse.Namespace):
-    batch_size = 1  # 12,  default 64
+    batch_size = 64
     epochs = 40
     update_freq = 1
     save_ckpt_freq = 10
@@ -139,7 +139,75 @@ class Args(argparse.Namespace):
     split_ratios = [0.6, 0.2, 0.2]
     AcE_batch_size = 360
     AcE_feature_size = 384
-    AcE_epochs = 100
+    AcE_epochs = 500
     AcE_criterion = "SmoothL1Loss"  # "MSE"
     AcE_lr = 0.0001
-    AcE_checkpoint = "runs/AcE_head_91.pth"
+    AcE_checkpoint = None  #  "checkpoints/AcE_head_99.pth"
+    teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
+    teacher_lr = 10e-4
+    teacher_epochs = 5
+
+    labels_to_keep = [
+        2,  # "Bending something so that it deforms"
+        3,  # "Bending something until it breaks"
+        5,  # "Closing something"
+        14,  # "Folding something"
+        22,  # "Letting something roll along a flat surface"
+        46,  # "Opening something":
+        122,  # "Rolling something on a flat surface"
+        134,  # "Something falling like a feather or paper"
+        135,  # "Something falling like a rock"
+        143,  # "Squeezing something"
+        149,  # "Tearing something into two pieces"
+        150,  # "Tearing something just a little bit"
+        172,  # Unfolding something"
+    ]  # np.arange(0, 174)
+
+    ss2affordance = {
+        2: 0,  # Bendable
+        3: 0,
+        5: 1,  # Openable/Closabe
+        46: 1,
+        14: 2,  # Foldable
+        172: 2,
+        22: 3,  # Rollable
+        122: 3,
+        149: 4,  # Tearable
+        150: 4,
+        143: 5,
+        134: 6,  # Lightweight
+        135: 7,  # Heavy
+    }
+
+    affordance_decoder = {
+        0: "Bendable",
+        1: "Openable/Closabe",
+        2: "Foldable",
+        3: "Rollable",  #
+        4: "Tearable",
+        5: "Squeezable",  #
+        6: "Falling like a feather or paper",
+        7: "Falling like a rock",
+    }
+
+    affordance_teacher_decoder = {
+        "Bendable": 0,
+        "Openable/Closabe": 2,
+        "Foldable": 4,
+        "Rollable": 6,
+        "Tearable": 8,
+        "Squeezable": 10,
+        "Falling like a feather or paper": 12,
+        "Falling like a rock": 13,
+    }
+
+    affordance_indices = [
+        0,
+        2,
+        4,
+        6,
+        8,
+        10,
+        12,
+        13,
+    ]

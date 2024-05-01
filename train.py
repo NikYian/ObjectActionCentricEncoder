@@ -6,12 +6,13 @@ os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 
 import torch
 import json
+import numpy as np
 
 from args import Args
 from datasets.image_dataset import generate_image_dataset
 from datasets.utils import ssv2_id2class, extract_subset, dataset_split
 from models.AcE import get_AcE
-from models.trainer import AcE_Trainer
+from models.AcE_trainer import AcE_Trainer
 from models.utils import get_criterion
 from models.teacher import load_teacher
 
@@ -26,18 +27,25 @@ if __name__ == "__main__":
     video_cls_dict = ssv2_id2class(args)
 
     # subset 1 consists of examples of bottles(obj id =2) being squeezed (action id = 143)
-    print("Generating subset 1")
-    subset1, s1_video_ids = extract_subset(
-        dataset, object_ids=[2], video_cls_ls=[143], video_cls_dict=video_cls_dict
-    )
-    print("Generating subset 2")
-    # subset 2 consists of examples of bottles(obj id =2) being rolled (action id = 143)
-    subset2, s2_video_ids = extract_subset(
-        dataset, object_ids=[2], video_cls_ls=[122, 143], video_cls_dict=video_cls_dict
+    # print("Generating subset 1")
+    # subset1, s1_video_ids = extract_subset(
+    #     dataset, object_ids=[2], video_cls_ls=[143], video_cls_dict=video_cls_dict
+    # )
+    # print("Generating subset 2")
+    # subset 2 consists of examples of bottles(obj id =2) being rolled (action id = 143) and squeezed (action id = 122)
+    # subset2, s2_video_ids = extract_subset(
+    #     dataset, object_ids=[2], video_cls_ls=[122, 143], video_cls_dict=video_cls_dict
+    # )
+
+    subset, video_ids = extract_subset(
+        dataset,
+        object_ids=[0, 1, 2],
+        video_cls_ls=args.labels_to_keep,
+        video_cls_dict=video_cls_dict,
     )
 
     train_loader, val_loader, test_loader = dataset_split(
-        subset2, s2_video_ids, args.split_ratios, args.AcE_batch_size
+        subset, video_ids, args.split_ratios, args.AcE_batch_size
     )
 
     AcE = get_AcE(args).to(args.device)
@@ -68,7 +76,7 @@ if __name__ == "__main__":
     # else:
     #     trainer.train(num_epochs=args.AcE_epochs)
 
-    # trainer.train(num_epochs=args.AcE_epochs)
+    trainer.train(num_epochs=args.AcE_epochs)
 
     print(f"Test loss: {trainer.evaluate(test_loader)}")
 
@@ -79,5 +87,8 @@ if __name__ == "__main__":
         images = images.to(args.device)
         target_features = target_features.to(args.device)
         res = AcE.predict_affordances(images)
+        total_squeezableness = np.mean(res[:, 5])
+        total_rollablenesss = np.mean(res[:, 3])
         target = AcE.ac_head(target_features).topk(k=10, dim=-1).indices
+
         breakpoint()

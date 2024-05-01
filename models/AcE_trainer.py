@@ -67,7 +67,7 @@ class AcE_Trainer:
             self.writer.add_scalar("epoch_training_loss", epoch_loss, epoch)
             # print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {epoch_loss:.4f}")
 
-            val_loss = self.evaluate(self.val_loader)
+            val_loss, ts, tr = self.evaluate(self.val_loader)
             self.writer.add_scalar("val_loss", val_loss, epoch)
             # print(f"Epoch [{epoch+1}/{num_epochs}], Val Loss: {val_loss:.4f}")
 
@@ -85,7 +85,7 @@ class AcE_Trainer:
                 )
                 # print("Best model saved!")
             pbar.set_description(
-                desc=f"Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
+                desc=f"tr = {tr:.2f},ts = {ts:.2f}, Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
             )
 
     def evaluate(self, data_loader):
@@ -98,11 +98,18 @@ class AcE_Trainer:
                 images = images.to(self.device)
                 target_features = target_features.to(self.device)
 
+                import numpy as np
+
+                res = self.model.predict_affordances(images)
+                total_squeezableness = np.mean(res[:, 5])
+                total_rollablenesss = np.mean(res[:, 3])
+
                 outputs = self.model(images)
 
                 loss = self.criterion(outputs, target_features)
                 total_loss += loss.item()
 
         avg_loss = total_loss / num_batches
+        self.model.train()
 
-        return avg_loss
+        return avg_loss, total_squeezableness, total_rollablenesss

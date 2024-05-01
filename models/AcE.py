@@ -7,6 +7,7 @@ from models.teacher import load_teacher
 class get_AcE(nn.Module):
     def __init__(self, args):
         super(get_AcE, self).__init__()
+        self.args = args
 
         self.clip, _ = clip.load(args.CLIP_model, device=args.device)
         for param in self.clip.parameters():  # CLIP params are frozen
@@ -31,6 +32,6 @@ class get_AcE(nn.Module):
     def predict_affordances(self, images):
         clip_features = self.clip.encode_image(images)
         features = self.head(clip_features)
-        ssv2_label_logits = self.ac_head(features)
-        res = torch.nn.functional.softmax(ssv2_label_logits, dim=-1)
-        return res[:, 122], res[:, 144]
+        aff_pairs = self.ac_head(features).detach().cpu().numpy()
+        aff = aff_pairs[:, self.args.affordance_indices]
+        return aff
