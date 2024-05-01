@@ -33,19 +33,19 @@ if __name__ == "__main__":
     # )
     # print("Generating subset 2")
     # subset 2 consists of examples of bottles(obj id =2) being rolled (action id = 143) and squeezed (action id = 122)
-    # subset2, s2_video_ids = extract_subset(
-    #     dataset, object_ids=[2], video_cls_ls=[122, 143], video_cls_dict=video_cls_dict
-    # )
-
-    subset, video_ids = extract_subset(
-        dataset,
-        object_ids=[0, 1, 2],
-        video_cls_ls=args.labels_to_keep,
-        video_cls_dict=video_cls_dict,
+    subset2, s2_video_ids = extract_subset(
+        dataset, object_ids=[2], video_cls_ls=[122, 143], video_cls_dict=video_cls_dict
     )
 
+    # subset, video_ids = extract_subset(
+    #     dataset,
+    #     object_ids=[0, 1, 2],
+    #     video_cls_ls=args.labels_to_keep,
+    #     video_cls_dict=video_cls_dict,
+    # )
+
     train_loader, val_loader, test_loader = dataset_split(
-        subset, video_ids, args.split_ratios, args.AcE_batch_size
+        subset2, s2_video_ids, args.split_ratios, args.AcE_batch_size
     )
 
     AcE = get_AcE(args).to(args.device)

@@ -142,7 +142,7 @@ class Args(argparse.Namespace):
     AcE_epochs = 500
     AcE_criterion = "SmoothL1Loss"  # "MSE"
     AcE_lr = 0.0001
-    AcE_checkpoint = None  #  "checkpoints/AcE_head_99.pth"
+    AcE_checkpoint = None  # "checkpoints/AcE_head_81.pth"
     teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
     teacher_lr = 10e-4
     teacher_epochs = 5

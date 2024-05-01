@@ -2,6 +2,7 @@ import torch
 import torch.nn as nn
 import clip
 from models.teacher import load_teacher
+from torch.nn.functional import softmax
 
 
 class get_AcE(nn.Module):
@@ -31,7 +32,12 @@ class get_AcE(nn.Module):
 
     def predict_affordances(self, images):
         clip_features = self.clip.encode_image(images)
+        batch_size = images.shape[0]
         features = self.head(clip_features)
-        aff_pairs = self.ac_head(features).detach().cpu().numpy()
-        aff = aff_pairs[:, self.args.affordance_indices]
+        affordance_logits = self.ac_head(features).detach().cpu().numpy()
+        # apply softmax in pairs of 2
+        reshaped_tensor = torch.tensor(affordance_logits).view(batch_size, 7, 2)
+        softmaxed_pairs = softmax(reshaped_tensor, dim=2)
+        output = softmaxed_pairs.view(affordance_logits.shape).numpy()
+        aff = output[:, self.args.affordance_indices]
         return aff
