@@ -139,10 +139,10 @@ class Args(argparse.Namespace):
     split_ratios = [0.6, 0.2, 0.2]
     AcE_batch_size = 360
     AcE_feature_size = 384
-    AcE_epochs = 500
+    AcE_epochs = 50
     AcE_criterion = "SmoothL1Loss"  # "MSE"
     AcE_lr = 0.0001
-    AcE_checkpoint = None  # "checkpoints/AcE_head_81.pth"
+    AcE_checkpoint = "checkpoints/AcE_head_49s3.pth"
     teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
     teacher_lr = 10e-4
     teacher_epochs = 5

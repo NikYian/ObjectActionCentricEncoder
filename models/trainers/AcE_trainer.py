@@ -10,6 +10,7 @@ import torch.nn.functional as F
 import json
 from tqdm import tqdm
 import glob
+import numpy as np
 
 
 class AcE_Trainer:
@@ -40,6 +41,8 @@ class AcE_Trainer:
     def train(self, num_epochs):
         best_val_loss = float("inf")
 
+        # characteristics_means = np.zeros((num_epochs, 8))
+
         pbar = tqdm(
             range(num_epochs),
         )
@@ -65,10 +68,17 @@ class AcE_Trainer:
 
             epoch_loss = running_loss / len(self.train_loader.dataset)
             self.writer.add_scalar("epoch_training_loss", epoch_loss, epoch)
+
             # print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {epoch_loss:.4f}")
 
-            val_loss, ts, tr = self.evaluate(self.val_loader)
+            val_loss, characteristics_means = self.evaluate(self.val_loader)
             self.writer.add_scalar("val_loss", val_loss, epoch)
+
+            for i, characteristic in enumerate(
+                self.args.affordance_teacher_decoder.keys()
+            ):
+                self.writer.add_scalar(characteristic, characteristics_means[i], epoch)
+
             # print(f"Epoch [{epoch+1}/{num_epochs}], Val Loss: {val_loss:.4f}")
 
             # Save the best model based on validation accuracy
@@ -85,7 +95,7 @@ class AcE_Trainer:
                 )
                 # print("Best model saved!")
             pbar.set_description(
-                desc=f"tr = {tr:.2f},ts = {ts:.2f}, Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
+                desc=f"tr = {characteristics_means[3]:.2f},ts = {characteristics_means[5]:.2f}, Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
             )
 
     def evaluate(self, data_loader):
@@ -93,16 +103,21 @@ class AcE_Trainer:
         total_loss = 0.0
         num_batches = len(data_loader)
 
+        total_characteristics_sum = np.zeros(8)
+        total_samples = 0
+
         with torch.no_grad():
             for images, target_features, _, _ in data_loader:
                 images = images.to(self.device)
                 target_features = target_features.to(self.device)
 
-                import numpy as np
+                batch_size = images.size(0)
+                total_samples += batch_size
 
                 res = self.model.predict_affordances(images)
-                total_squeezableness = np.mean(res[:, 5])
-                total_rollablenesss = np.mean(res[:, 3])
+                # total_squeezableness = np.mean(res[:, 5])
+                # total_rollablenesss = np.mean(res[:, 3])
+                total_characteristics_sum += np.sum(res, axis=0)
 
                 outputs = self.model(images)
 
@@ -110,6 +125,7 @@ class AcE_Trainer:
                 total_loss += loss.item()
 
         avg_loss = total_loss / num_batches
+        characteristics_means = total_characteristics_sum / total_samples
         self.model.train()
 
-        return avg_loss, total_squeezableness, total_rollablenesss
+        return avg_loss, characteristics_means
