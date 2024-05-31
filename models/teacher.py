@@ -9,7 +9,7 @@ from torch import nn
 from torch.nn.functional import softmax
 
 
-def load_teacher(args, aff_head=True):
+def load_teacher(args, aff_head=False):
     device = args.device
     # fix the seed for reproducibility
     seed = args.seed + utils.get_rank()

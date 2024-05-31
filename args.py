@@ -3,7 +3,7 @@ import torch
 
 
 class Args(argparse.Namespace):
-    batch_size = 64
+    batch_size = 1
     epochs = 40
     update_freq = 1
     save_ckpt_freq = 10
@@ -73,7 +73,7 @@ class Args(argparse.Namespace):
     # use_cls =
 
     # Dataset parameters
-    data_path = "ssv2"
+    data_path = "/gpu-data2/nyian/ssv2/mp4"
     anno_path = "ssv2/ssv2.csv"
     ssv2_labels = "ssv2/labels.json"
     eval_data_path = None
@@ -138,7 +138,7 @@ class Args(argparse.Namespace):
     ]
 
     obj_crop_dir = "ssv2/object_crops"
-    VAE_features_dir = "ssv2/VAE_features"
+    VAE_features_dir = "/gpu-data2/nyian/ssv2/VAE_features"
 
     # AcE arguments
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -7,7 +7,7 @@ import numpy as np
 import tqdm
 from torch.utils.data import Dataset
 
-from datasets.video_dataset import build_video_dataset
+# from datasets.video_dataset import build_video_dataset
 from models.teacher import load_teacher
 import externals.VideoMAE.video_transforms as video_transforms
 import externals.VideoMAE.volume_transforms as volume_transforms
@@ -18,8 +18,6 @@ class OAcEImgDataset(Dataset):
         # self.obj_crop_dir = args.obj_crop_dir
         # self.VAE_features_dir = args.VAE_features_dir
         _, self.preprocess = clip.load(args.CLIP_model, device=args.device)
-
-        
 
         self.sample_paths = [
             os.path.join(args.obj_crop_dir, file)
@@ -116,52 +114,52 @@ def object_bb_from_annotations(args):
     return interacting_object_bb
 
 
-def generate_image_dataset(args, gen_obj_crops=True, gen_VAE_features=True):
+# def generate_image_dataset(args, gen_obj_crops=True, gen_VAE_features=True):
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+#     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    video_dataset, video_dataloader = build_video_dataset(args)
-    video_dataset.get_whole_video_switch()
-    iobb = object_bb_from_annotations(args)  # iobb = interacting object bounding boxes
+#     video_dataset, video_dataloader = build_video_dataset(args)
+#     video_dataset.get_whole_video_switch()
+#     iobb = object_bb_from_annotations(args)  # iobb = interacting object bounding boxes
 
-    # generate object crops
-    if gen_obj_crops:
-        for video in tqdm.tqdm(video_dataset):
-            video_id = video[2]
-            if video_id in iobb:
-                bbs = iobb[video_id]["bounding_boxes"]
-                object = iobb[video_id]["object"]
-                frames = video[0]
-                for frame, bb in bbs.items():
-                    xmin, ymin, xmax, ymax = bb
-                    obj_crop = frames[frame][ymin:ymax, xmin:xmax]
-                    pil_img = Image.fromarray(obj_crop)
-                    pil_img.save(
-                        args.obj_crop_dir
-                        + "/"
-                        + str(video_id)
-                        + "_"
-                        + object
-                        + "_"
-                        + str(frame)
-                        + ".jpg"
-                    )
+#     # generate object crops
+#     if gen_obj_crops:
+#         for video in tqdm.tqdm(video_dataset):
+#             video_id = video[2]
+#             if video_id in iobb:
+#                 bbs = iobb[video_id]["bounding_boxes"]
+#                 object = iobb[video_id]["object"]
+#                 frames = video[0]
+#                 for frame, bb in bbs.items():
+#                     xmin, ymin, xmax, ymax = bb
+#                     obj_crop = frames[frame][ymin:ymax, xmin:xmax]
+#                     pil_img = Image.fromarray(obj_crop)
+#                     pil_img.save(
+#                         args.obj_crop_dir
+#                         + "/"
+#                         + str(video_id)
+#                         + "_"
+#                         + object
+#                         + "_"
+#                         + str(frame)
+#                         + ".jpg"
+#                     )
 
-    # generate VAE_features
-    if gen_VAE_features:
-        teacher = load_teacher(args)
+#     # generate VAE_features
+#     if gen_VAE_features:
+#         teacher = load_teacher(args)
 
-        video_dataset.get_whole_video_switch()
+#         video_dataset.get_whole_video_switch()
 
-        for video in tqdm.tqdm(video_dataloader):
-            video_id = video[2][0]
-            video = video[0].to(device)
-            features = teacher.forward_features(video)
-            features_numpy = features.cpu().detach().numpy().reshape(384)
-            file_path = os.path.join(args.VAE_features_dir, video_id)
-            np.save(file_path + ".npy", features_numpy)
+#         for video in tqdm.tqdm(video_dataloader):
+#             video_id = video[2][0]
+#             video = video[0].to(device)
+#             features = teacher.forward_features(video)
+#             features_numpy = features.cpu().detach().numpy().reshape(384)
+#             file_path = os.path.join(args.VAE_features_dir, video_id)
+#             np.save(file_path + ".npy", features_numpy)
 
-    # create torch Dataset and Dataloader classes
-    dataset = OAcEImgDataset(args)
+#     # create torch Dataset and Dataloader classes
+#     dataset = OAcEImgDataset(args)
 
-    return dataset
+#     return dataset

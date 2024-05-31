@@ -135,6 +135,14 @@ for object in objects:
         mask = objects[object]["affordance_distribution"] > 30
         main_objects[object] = objects[object]
         main_objects[object]["affordance_labels"] = list(np.where(mask, 1, 0))
+        # main_objects[object]["video_ids"] = main_objects[object]["video_ids"].to_list()
+        main_objects[object]["affordance_distribution"] = main_objects[object][
+            "affordance_distribution"
+        ].tolist()
+
+
+with open("ssv2/somethings_affordances/main_objects.json", "w") as json_file:
+    json.dump(main_objects, json_file, indent=4)
     # sum = np.sum(objects[object]["affordance_distribution"])
     # objects[object]["affordance_distribution"] = list(
     #     objects[object]["affordance_distribution"] / sum
@@ -170,13 +178,13 @@ with open("ssv2/somethings_affordances/test.json", "w") as json_file:
 
 breakpoint()
 
-objects_df = pd.DataFrame.from_dict(main_objects, orient="index")
-objects_df = objects_df.sort_values(by="sample_num", ascending=False)
-objects_dict = objects_df.to_dict(orient="index")
-objects_json = pd.Series(objects_dict).to_json(orient="records")
+# objects_df = pd.DataFrame.from_dict(main_objects, orient="index")
+# objects_df = objects_df.sort_values(by="sample_num", ascending=False)
+# objects_dict = objects_df.to_dict(orient="index")
+# objects_json = pd.Series(objects_dict).to_json(orient="records")
 
-with open("ssv2/somethings_affordances/main_objects.json", "w") as f:
-    f.write(objects_json)
+# with open("ssv2/somethings_affordances/main_objects.json", "w") as f:
+#     f.write(objects_json)
 # objects_df2 = objects_df[["affordance_labels", "sample_num"]]
 # objects_df2.to_csv("ssv2/somethings_affordances/sa_objects.csv", index=True)
 
