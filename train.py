@@ -83,7 +83,7 @@ if __name__ == "__main__":
     # else:
     #     trainer.train(num_epochs=args.AcE_epochs)
 
-    # trainer.train(num_epochs=args.AcE_epochs)
+    trainer.train(num_epochs=args.AcE_epochs)
 
     # print(f"Test loss: {trainer.evaluate(test_loader)}")
 
@@ -93,9 +93,25 @@ if __name__ == "__main__":
     for images, target_features, object_id, video_id in test_loader:
         images = images.to(args.device)
         target_features = target_features.to(args.device)
+        features = AcE(images)
+
         res = AcE.predict_affordances(images)
         total_squeezableness = np.mean(res[:, 5])
         total_rollablenesss = np.mean(res[:, 3])
         target = AcE.ac_head(target_features).topk(k=10, dim=-1).indices
+
+        max_sim = 0
+        max_sim_index = None
+
+        def find_closest(index, features):
+            for i, feature in enumerate(features):
+                if video_id[i] != video_id[index]:
+                    sim = torch.cosine_similarity(
+                        features[index], features[i], dim=0
+                    ).item()
+                    if sim > max_sim:
+                        max_sim = sim
+                        max_sim_index = i
+            return max_sim, max_sim_index
 
         breakpoint()

@@ -130,6 +130,13 @@ class Args(argparse.Namespace):
     annotation_dir = "ssv2/annotations"
 
     # Image dataset dirs
+    something_else_ann = [
+        "ssv2/something_else/bounding_box_smthsmth_part1.json",
+        "ssv2/something_else/bounding_box_smthsmth_part2.json",
+        "ssv2/something_else/bounding_box_smthsmth_part3.json",
+        "ssv2/something_else/bounding_box_smthsmth_part4.json",
+    ]
+
     obj_crop_dir = "ssv2/object_crops"
     VAE_features_dir = "ssv2/VAE_features"
 
@@ -163,51 +170,167 @@ class Args(argparse.Namespace):
         172,  # Unfolding something"
     ]  # np.arange(0, 174)
 
-    ss2affordance = {
-        2: 0,  # Bendable
-        3: 0,
-        5: 1,  # Openable/Closabe
-        46: 1,
-        14: 2,  # Foldable
-        172: 2,
-        22: 3,  # Rollable
-        122: 3,
-        149: 4,  # Tearable
-        150: 4,
-        143: 5,
-        134: 6,  # Lightweight
-        135: 7,  # Heavy
+    # ssv2 labels and the coresponding affordances
+    action2aff_labels = {
+        # [ss class, object that is characterized by the action, affordance]
+        2: ["Bending something so that it deforms", "object 0", "bendable"],
+        3: ["Bending something until it breaks", "object 0", "bendable"],
+        4: ["Burying something in something", "object 1", "burry in/cover with"],
+        5: ["Closing something", "object 0", "openable/closable"],
+        6: ["Covering something with something", "object 1", "burry in/cover with"],
+        7: ["Digging something out of something", "object 1", "burry in/cover with"],
+        14: ["Folding something", "object 0", "foldable"],
+        22: ["Letting something roll along a flat surface", "object 0", "rollable"],
+        23: ["Letting something roll down a slanted surface", "object 0", "rollable"],
+        24: [
+            "Letting something roll up a slanted surface, so it rolls back down",
+            "object 0",
+            "rollable",
+        ],
+        46: ["Opening something", "object 0", "openable/closable"],
+        49: ["Plugging something into something", "object 1", "plug into"],
+        50: [
+            "Plugging something into something but pulling it right out as you remove your hand",
+            "object 1",
+            "plug into",
+        ],
+        # 51: ["Poking a hole into some substance", "object 0", "poke hole"],
+        # 52: ["Poking a hole into something soft", "object 0", "poke hole"],
+        59: ["Pouring something into something", "object 1", "containment"],
+        60: [
+            "Pouring something into something until it overflows",
+            "object 1",
+            "containment",
+        ],
+        62: ["Pouring something out of something", "object 1", "containment"],
+        66: [
+            "Pretending to close something without actually closing it",
+            "object 0",
+            "openable/closable",
+        ],
+        67: [
+            "Pretending to open something without actually opening it",
+            "object 0",
+            "openable/closable",
+        ],
+        70: [
+            "Pretending to pour something out of something, but something is empty",
+            "object 1",
+            "containment",
+        ],
+        # 91: [
+        #     "Pulling two ends of something so that it gets stretched",
+        #     "object 0",
+        #     "stretchable",
+        # ],
+        # 92: [
+        #     "Pulling two ends of something so that it separates into two pieces",
+        #     "object 0",
+        #     "pull ends to separate",
+        # ],
+        115: [
+            "Putting something that can't roll onto a slanted surface, so it slides down",
+            "object 0",
+            "can't roll/slide",
+        ],
+        116: [
+            "Putting something that can't roll onto a slanted surface, so it stays where it is",
+            "object 0",
+            "can't roll/slide",
+        ],
+        122: [
+            "Rolling something on a flat surface",
+            "object 0",
+            "rollable",
+        ],
+        # 123: ["Scooping something up with something", "object 1", "scoop with"],
+        129: ["Showing that something is empty", "object 0", "containment"],
+        # 134: [
+        #     "Something falling like a feather or paper",
+        #     "object 0",
+        #     "falls like a feather or paper",
+        # ],
+        # 135: [
+        #     "Something falling like a rock",
+        #     "object 0",
+        #     "falls like a rock",
+        # ],
+        143: ["Squeezing something", "object 0", "squeezable"],
+        # 149: ["Tearing something into two pieces", "object 0", "tearable"],
+        150: ["Tearing something just a little bit", "object 0", "tearable"],
+        # 162: [
+        #     "Trying to bend something unbendable so nothing happens",
+        #     "object 0",
+        #     "unbendable",
+        # ],
+        172: ["Unfolding something", "object 0", "foldable"],
     }
 
-    affordance_decoder = {
-        0: "Bendable",
-        1: "Openable/Closabe",
-        2: "Foldable",
-        3: "Rollable",  #
-        4: "Tearable",
-        5: "Squeezable",  #
-        6: "Falling like a feather or paper",
-        7: "Falling like a rock",
-    }
-
-    affordance_teacher_decoder = {
-        "Bendable": 0,
-        "Openable/Closabe": 2,
-        "Foldable": 4,
-        "Rollable": 6,
-        "Tearable": 8,
-        "Squeezable": 10,
-        "Falling like a feather or paper": 12,
-        "Falling like a rock": 13,
-    }
-
-    affordance_indices = [
-        0,
-        2,
-        4,
-        6,
-        8,
-        10,
-        12,
-        13,
+    affordances = [
+        "bendable",
+        "foldable",
+        "openable/closable",
+        # "stretchable",
+        # "scoop with",
+        # "falls like a rock",
+        "rollable",
+        # "falls like a feather or paper",
+        "can't roll/slide",
+        "squeezable",
+        "containment",
+        # "pull ends to separate",
+        # "unbendable",
+        "tearable",
+        "plug into",
+        # "poke hole",
+        "burry in/cover with",
     ]
+
+    # ss2affordance = {
+    #     2: 0,  # Bendable
+    #     3: 0,
+    #     5: 1,  # Openable/Closabe
+    #     46: 1,
+    #     14: 2,  # Foldable
+    #     172: 2,
+    #     22: 3,  # Rollable
+    #     122: 3,
+    #     149: 4,  # Tearable
+    #     150: 4,
+    #     143: 5,
+    #     134: 6,  # Lightweight
+    #     135: 7,  # Heavy
+    # }
+
+    # affordance_decoder = {
+    #     0: "Bendable",
+    #     1: "Openable/Closabe",
+    #     2: "Foldable",
+    #     3: "Rollable",  #
+    #     4: "Tearable",
+    #     5: "Squeezable",  #
+    #     6: "Falling like a feather or paper",
+    #     7: "Falling like a rock",
+    # }
+
+    # affordance_teacher_decoder = {
+    #     "Bendable": 0,
+    #     "Openable/Closabe": 2,
+    #     "Foldable": 4,
+    #     "Rollable": 6,
+    #     "Tearable": 8,
+    #     "Squeezable": 10,
+    #     "Falling like a feather or paper": 12,
+    #     "Falling like a rock": 13,
+    # }
+
+    # affordance_indices = [
+    #     0,
+    #     2,
+    #     4,
+    #     6,
+    #     8,
+    #     10,
+    #     12,
+    #     13,
+    # ]

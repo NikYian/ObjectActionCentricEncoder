@@ -19,6 +19,8 @@ class OAcEImgDataset(Dataset):
         # self.VAE_features_dir = args.VAE_features_dir
         _, self.preprocess = clip.load(args.CLIP_model, device=args.device)
 
+        
+
         self.sample_paths = [
             os.path.join(args.obj_crop_dir, file)
             for file in os.listdir(args.obj_crop_dir)
@@ -47,6 +49,42 @@ class OAcEImgDataset(Dataset):
 
     def __len__(self):
         return len(self.sample_paths)
+
+
+# class OAcEImgDataset(Dataset):
+#     def __init__(self, args):
+#         # self.obj_crop_dir = args.obj_crop_dir
+#         # self.VAE_features_dir = args.VAE_features_dir
+#         _, self.preprocess = clip.load(args.CLIP_model, device=args.device)
+
+#         self.sample_paths = [
+#             os.path.join(args.obj_crop_dir, file)
+#             for file in os.listdir(args.obj_crop_dir)
+#         ]
+#         self.label_paths = {
+#             fname.split(".")[0]: os.path.join(args.VAE_features_dir, fname)
+#             for fname in os.listdir(args.VAE_features_dir)
+#         }
+#         self.data_transform = None
+
+#     def __getitem__(self, index):
+#         sample = Image.open(self.sample_paths[index])
+#         sample = self.preprocess(sample).to(torch.float32)
+#         fname = os.path.basename(self.sample_paths[index])
+#         video_id = fname.split("_")[0]
+#         object = fname.split("_")[1]
+#         if object == "object" or object == "Object":
+#             object_id = 0
+#         elif object == "ball":
+#             object_id = 1
+#         else:
+#             object_id = 2
+#         label = np.load(self.label_paths[video_id])
+
+#         return sample, label, object_id, video_id
+
+#     def __len__(self):
+#         return len(self.sample_paths)
 
 
 def object_bb_from_annotations(args):

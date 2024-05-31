@@ -5,7 +5,7 @@ from models.teacher import load_teacher
 from torch.nn.functional import softmax
 
 
-class get_AcE(nn.Module):
+class get_AcE(nn.Module):nyian
     def __init__(self, args):
         super(get_AcE, self).__init__()
         self.args = args
