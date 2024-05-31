@@ -35,7 +35,7 @@ if __name__ == "__main__":
     # # subset 2 consists of examples of bottles(obj id =2) being rolled (action id = 143) and squeezed (action id = 122)
     # subset2, s2_video_ids = extract_subset(
     #     dataset, object_ids=[2], video_cls_ls=[122, 143], video_cls_dict=video_cls_dict
-    )
+    # )
 
     # subset3, s3_video_ids = extract_subset(
     #     dataset,

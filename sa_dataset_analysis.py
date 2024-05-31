@@ -96,7 +96,7 @@ for dirs in ssv2_ann_dirs:
                 # generate object affordances from ssv2 actions and also count how many
                 # times each object appears in the Something's Affordance subset
                 if object in objects:
-                    objects[object]["affordance_labels"].add(label)
+                    # objects[object]["affordance_labels"].add(label)
                     objects[object]["video_ids"].append(video_id)
                     objects[object]["sample_num"] += 1
                     objects[object]["affordances"].add(args.action2aff_labels[label][2])
@@ -112,7 +112,7 @@ for dirs in ssv2_ann_dirs:
                     objects[object]["affordance_distribution"][
                         np.where(affordances == affordance)[0][0]
                     ] += 1
-                    objects[object]["affordance_labels"] = {label}
+                    # objects[object]["affordance_labels"] = {label}
                     objects[object]["sample_num"] = 1
                     objects[object]["affordances"] = {args.action2aff_labels[label][2]}
 
@@ -126,19 +126,22 @@ for dirs in ssv2_ann_dirs:
                 ssv2_annotations[video_id] = annotation
                 ssv2_annotations[video_id]["label"] = label
 
-with open("ssv2/somethings_affordances/annotations.json", "w") as json_file:
-    json.dump(sa_ann, json_file, indent=4)
+# with open("ssv2/somethings_affordances/annotations.json", "w") as json_file:
+#     json.dump(sa_ann, json_file, indent=4)
 
 main_objects = {}
 for object in objects:
     if objects[object]["sample_num"] > 50:
         mask = objects[object]["affordance_distribution"] > 30
         main_objects[object] = objects[object]
-        main_objects[object]["affordance_labels"] = list(np.where(mask, 1, 0))
+        main_objects[object]["affordance_labels"] = [
+            int(item) for item in np.where(mask, 1, 0)
+        ]
         # main_objects[object]["video_ids"] = main_objects[object]["video_ids"].to_list()
         main_objects[object]["affordance_distribution"] = main_objects[object][
             "affordance_distribution"
         ].tolist()
+        main_objects[object]["affordances"] = list(main_objects[object]["affordances"])
 
 
 with open("ssv2/somethings_affordances/main_objects.json", "w") as json_file:
@@ -176,7 +179,6 @@ with open("ssv2/somethings_affordances/val.json", "w") as json_file:
 with open("ssv2/somethings_affordances/test.json", "w") as json_file:
     json.dump(test_ids, json_file)
 
-breakpoint()
 
 # objects_df = pd.DataFrame.from_dict(main_objects, orient="index")
 # objects_df = objects_df.sort_values(by="sample_num", ascending=False)
@@ -201,6 +203,4 @@ breakpoint()
 #     somethings_aff_categories, orient="index"
 # )
 # affordance_info_df = pd.DataFrame.from_dict(affordance_info, orient="index")
-
-
-breakpoint()
+print("Annotation extraction completed")
