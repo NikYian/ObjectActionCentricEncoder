@@ -22,32 +22,16 @@ sa_ann = {}
 # video ids of all videos annotated at Something-Else
 video_ids = list(box_annotations.keys())
 
-# filename = "ssv2/something_else_ids.csv"
-
-# # Open the file in write mode
-# with open(filename, "w", newline="") as file:
-#     # Loop through the list of IDs
-#     for id in video_ids:
-#         # Write each ID to a new line in the file
-#         file.write(str(id) + "\n")
-
 # action labels from Something's Affordance subset
 labels_to_keep = np.array(list(args.action2aff_labels.keys()))
 
-# affordances = set()
-# # get affordance list
-# for key, value in args.action2aff_labels.items():
-#     affordances.add(value[2])
-# affordances = np.array(list(affordances))
-
 affordances = np.array(args.affordances)
-
 
 # dataset info
 somethings_aff_categories = {label: {"sample_num": 0} for label in labels_to_keep}
 objects = {}
 affordance_info = {}
-
+sa_labels = {}
 
 with open("ssv2/labels.json", "r") as f:
     label_encoder = json.load(f)
@@ -119,6 +103,8 @@ for dirs in ssv2_ann_dirs:
                 sa_ann[video_id] = {
                     "ann": video_ann,
                     "obj": args.action2aff_labels[label][1],
+                    "object": object,
+                    "affordance": int(np.where(affordances == affordance)[0][0]),
                 }
 
                 # count how many samples in each affordance category
@@ -126,8 +112,8 @@ for dirs in ssv2_ann_dirs:
                 ssv2_annotations[video_id] = annotation
                 ssv2_annotations[video_id]["label"] = label
 
-# with open("ssv2/somethings_affordances/annotations.json", "w") as json_file:
-#     json.dump(sa_ann, json_file, indent=4)
+with open("ssv2/somethings_affordances/annotations.json", "w") as json_file:
+    json.dump(sa_ann, json_file)
 
 main_objects = {}
 for object in objects:
@@ -143,18 +129,20 @@ for object in objects:
         ].tolist()
         main_objects[object]["affordances"] = list(main_objects[object]["affordances"])
 
+main_objects_df = pd.DataFrame.from_dict(main_objects, orient="index")
+main_objects_df = main_objects_df.sort_values(by="sample_num", ascending=False)
+
 
 with open("ssv2/somethings_affordances/main_objects.json", "w") as json_file:
     json.dump(main_objects, json_file, indent=4)
-    # sum = np.sum(objects[object]["affordance_distribution"])
-    # objects[object]["affordance_distribution"] = list(
-    #     objects[object]["affordance_distribution"] / sum
-    # )
 
 train_ids = []
 val_ids = []
 test_ids = []
 
+train_video_ids = []
+val_video_ids = []
+test_video_ids = []
 
 ## create train,test split from video ids
 
@@ -166,12 +154,24 @@ for object in objects:
         split1 = int(len(objects[object]["video_ids"]) * args.split_ratios[0])
         split2 = split1 + int(len(objects[object]["video_ids"]) * args.split_ratios[1])
 
-        train_ids.extend(objects[object]["video_ids"][:split1])
-        val_ids.extend(objects[object]["video_ids"][split1:split2])
-        test_ids.extend(objects[object]["video_ids"][split2:])
+        train_video_ids.extend(objects[object]["video_ids"][:split1])
+        val_video_ids.extend(objects[object]["video_ids"][split1:split2])
+        test_video_ids.extend(objects[object]["video_ids"][split2:])
     else:
-        train_ids.extend(objects[object]["video_ids"])
-breakpoint()
+        train_video_ids.extend(objects[object]["video_ids"])
+
+# create a list with all the frames of the videos that contain detected object. ex. "151201/0001.jpg"
+# Assuming the lists are already defined
+video_id_lists = [test_video_ids, train_video_ids, val_video_ids]
+frame_id_lists = [test_ids, train_ids, val_ids]
+
+for i in range(3):
+    video_list = video_id_lists[i]
+    frame_list = frame_id_lists[i]
+    for video_id in video_list:
+        for frame in sa_ann[video_id]["ann"]:
+            frame_list.append(frame["name"])
+
 with open("ssv2/somethings_affordances/train.json", "w") as json_file:
     json.dump(train_ids, json_file)
 with open("ssv2/somethings_affordances/val.json", "w") as json_file:
@@ -180,27 +180,22 @@ with open("ssv2/somethings_affordances/test.json", "w") as json_file:
     json.dump(test_ids, json_file)
 
 
-# objects_df = pd.DataFrame.from_dict(main_objects, orient="index")
-# objects_df = objects_df.sort_values(by="sample_num", ascending=False)
-# objects_dict = objects_df.to_dict(orient="index")
-# objects_json = pd.Series(objects_dict).to_json(orient="records")
+for video_id in sa_ann.keys():
+    sa_labels[video_id] = {}
+    for frame in sa_ann[video_id]["ann"]:
 
-# with open("ssv2/somethings_affordances/main_objects.json", "w") as f:
-#     f.write(objects_json)
-# objects_df2 = objects_df[["affordance_labels", "sample_num"]]
-# objects_df2.to_csv("ssv2/somethings_affordances/sa_objects.csv", index=True)
+        object = sa_labels[video_id]["object"] = sa_ann[video_id]["object"]
+        sa_labels[video_id]["affordance"] = int(sa_ann[video_id]["affordance"])
+        if object in main_objects:
+            sa_labels[video_id]["affordance_labels"] = main_objects[object][
+                "affordance_labels"
+            ]
+        else:
+            sa_labels[video_id]["affordance_labels"] = [0] * 10
+            sa_labels[video_id]["affordance_labels"][sa_ann[video_id]["affordance"]] = 1
 
-# video_ids = list(sa_ann.keys())
-# filename = "ssv2/somethings_aff_ids.csv"
-# # Open the file in write mode
-# with open(filename, "w", newline="") as file:
-#     # Loop through the list of IDs
-#     for id in video_ids:
-#         # Write each ID to a new line in the file
-#         file.write(str(id) + "\n")
+with open("ssv2/somethings_affordances/sa_labels.json", "w") as json_file:
+    json.dump(sa_labels, json_file)
 
-# somethings_aff_categories = pd.DataFrame.from_dict(
-#     somethings_aff_categories, orient="index"
-# )
-# affordance_info_df = pd.DataFrame.from_dict(affordance_info, orient="index")
+breakpoint()
 print("Annotation extraction completed")

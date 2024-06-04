@@ -21,6 +21,7 @@ class AcE_Trainer:
         train_loader,
         val_loader,
         criterion,
+        val_criterion,
         optimizer,
         device="cuda" if torch.cuda.is_available() else "cpu",
         log_dir="logs",
@@ -29,6 +30,7 @@ class AcE_Trainer:
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.criterion = criterion
+        self.val_criterion = val_criterion
         self.optimizer = optimizer
         self.device = device
         self.log_dir = log_dir
@@ -40,6 +42,8 @@ class AcE_Trainer:
 
     def train(self, num_epochs):
         best_val_loss = float("inf")
+        epoch_loss = 0
+        val_loss = 0
 
         # characteristics_means = np.zeros((num_epochs, 8))
 
@@ -49,13 +53,21 @@ class AcE_Trainer:
         for epoch in pbar:
             self.model.train()
             running_loss = 0.0
-            for i, (images, labels, _, _) in enumerate(self.train_loader):
+            for i, (images, features, _, _, aff_sentence) in enumerate(
+                self.train_loader
+            ):
                 images = images.to(self.device)
-                labels = labels.to(self.device)
+                features = features.to(self.device)
 
                 self.optimizer.zero_grad()
                 outputs = self.model(images)
-                loss = self.criterion(outputs, labels)
+                image_loss = self.criterion(outputs, features)
+
+                # aff_sentence = self.args.affordance_sentences[aff_label]
+                text_outputs = self.model.forward_text(aff_sentence)
+                text_loss = self.criterion(text_outputs, features)
+
+                loss = image_loss + text_loss
                 loss.backward()
                 self.optimizer.step()
 
@@ -65,6 +77,10 @@ class AcE_Trainer:
                     self.writer.add_scalar(
                         "training_loss", loss.item(), epoch * len(self.train_loader) + i
                     )
+
+                pbar.set_description(
+                    desc=f"Batch {i}/{len(self.train_loader)}. Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
+                )
 
             epoch_loss = running_loss / len(self.train_loader.dataset)
             self.writer.add_scalar("epoch_training_loss", epoch_loss, epoch)
@@ -94,38 +110,40 @@ class AcE_Trainer:
                     os.path.join(self.log_dir, "AcE_head_" + str(epoch) + ".pth"),
                 )
                 # print("Best model saved!")
-            pbar.set_description(
-                desc=f"tr = {characteristics_means[3]:.2f},ts = {characteristics_means[5]:.2f}, Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
-            )
+                # pbar.set_description(
+                #     desc=f"tr = {characteristics_means[3]:.2f},ts = {characteristics_means[5]:.2f}, Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
+                # )
 
     def evaluate(self, data_loader):
         self.model.eval()
+        self.model.update_aff_anchors()
         total_loss = 0.0
         num_batches = len(data_loader)
 
-        total_characteristics_sum = np.zeros(8)
+        # total_characteristics_sum = np.zeros(8)
         total_samples = 0
 
         with torch.no_grad():
-            for images, target_features, _, _ in data_loader:
+            for images, _, _, multi_label_targets, _ in data_loader:
                 images = images.to(self.device)
-                target_features = target_features.to(self.device)
+                breakpoint()
+                multi_label_targets = torch.stack(multi_label_targets, dim=1).float()
+                multi_label_targets = multi_label_targets.to(self.device)
 
                 batch_size = images.size(0)
                 total_samples += batch_size
 
-                res = self.model.predict_affordances(images)
-                # total_squeezableness = np.mean(res[:, 5])
-                # total_rollablenesss = np.mean(res[:, 3])
-                total_characteristics_sum += np.sum(res, axis=0)
+                predictions = self.model.ZS_predict(images)
 
-                outputs = self.model(images)
+                # total_characteristics_sum += np.sum(res, axis=0)
 
-                loss = self.criterion(outputs, target_features)
+                # outputs = self.model(images)
+
+                loss = self.val_criterion(predictions, multi_label_targets)
                 total_loss += loss.item()
 
         avg_loss = total_loss / num_batches
-        characteristics_means = total_characteristics_sum / total_samples
+        # characteristics_means = total_characteristics_sum / total_samples
         self.model.train()
 
-        return avg_loss, characteristics_means
+        return avg_loss  # , characteristics_means

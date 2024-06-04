@@ -137,14 +137,19 @@ class Args(argparse.Namespace):
         "ssv2/something_else/bounding_box_smthsmth_part4.json",
     ]
 
-    obj_crop_dir = "ssv2/object_crops"
+    obj_crop_dir = "/gpu-data2/nyian/ssv2/object_crops"
     VAE_features_dir = "/gpu-data2/nyian/ssv2/VAE_features"
+    sa_sample_ids = {
+        "train": "ssv2/somethings_affordances/train.json",
+        "val": "ssv2/somethings_affordances/val.json",
+        "test": "ssv2/somethings_affordances/test.json",
+    }
 
     # AcE arguments
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
     split_ratios = [0.6, 0.2, 0.2]
-    AcE_batch_size = 360
+    AcE_batch_size = 600
     AcE_feature_size = 384
     AcE_epochs = 50
     AcE_criterion = "SmoothL1Loss"  # "MSE"
@@ -284,6 +289,19 @@ class Args(argparse.Namespace):
         "plug into",
         # "poke hole",
         "burry in/cover with",
+    ]
+
+    affordance_sentences = [
+        "an image of an object that can be bent",
+        "an image of an object that can be folded",
+        "an image of an object that can be opened/closed",
+        "an image of an object that can be rolled",
+        "an image of an object that can be slided",
+        "an image of an object that can be squeezed",
+        "an image of an object that can be used for containment",
+        "an image of an object that can be torn",
+        "an image of an object that can be plugged into",
+        "an image of an object that can be used to bury in/covered with other objects",
     ]
 
     # ss2affordance = {
