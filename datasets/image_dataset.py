@@ -4,7 +4,7 @@ import os
 import clip
 import torch
 import numpy as np
-import tqdm
+from tqdm import tqdm
 from torch.utils.data import Dataset, DataLoader
 
 # from datasets.video_dataset import build_video_dataset
@@ -52,6 +52,58 @@ class OAcEImgDataset(Dataset):
         return os.path.join(self.args.VAE_features_dir, fname)
 
 
+class OAcEClipDataset(Dataset):
+    def __init__(self, feature_ids, args, sa_labels, main_objects):
+        self.args = args
+
+        self.feature_ids = feature_ids
+        self.sample_paths = [self.feature_path(id) for id in feature_ids]
+        self.video_ids = [id.split("/")[0] for id in feature_ids]
+        self.target_paths = [self.VAE_feature_path(id) for id in self.video_ids]
+        print("checking availability of all samples")
+        existing_sample_paths = []
+        not_found_count = 0
+        for sample_path in tqdm(self.sample_paths):
+            if os.path.exists(sample_path):
+                existing_sample_paths.append(sample_path)
+            else:
+                not_found_count += 1
+
+        self.sample_paths = existing_sample_paths
+        print(f"{not_found_count} files were not found.")
+        self.main_objects = main_objects
+        self.sa_labels = sa_labels
+
+    def __getitem__(self, index):
+        sample_path = self.sample_paths[index]
+        video_id = self.video_ids[index]
+        target_path = self.target_paths[index]
+        # video_id = self.image_ids[index].split("/")[0]
+        clip_features = np.load(sample_path)
+
+        target_features = np.load(target_path)
+        affordance_label = self.sa_labels[video_id]["affordance"]
+        # affordance_sentense = self.args.affordance_sentences[affordance_label]
+        multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
+
+        return (
+            clip_features,
+            target_features,
+            affordance_label,
+            multi_label_aff,
+        )
+
+    def __len__(self):
+        return len(self.sample_paths)
+
+    def feature_path(self, feature_id):
+        return os.path.join(self.args.clip_featrures_dir, feature_id)
+
+    def VAE_feature_path(self, video_id):
+        fname = video_id + ".npy"
+        return os.path.join(self.args.VAE_features_dir, fname)
+
+
 def generate_image_dataset(args):
 
     print("Importing dataset sample ids")
@@ -69,16 +121,22 @@ def generate_image_dataset(args):
     with open("ssv2/somethings_affordances/main_objects.json", "r") as f:
         main_objects = json.load(f)
 
-    train_dataset = OAcEImgDataset(train_ids, args, sa_labels, main_objects)
-    val_dataset = OAcEImgDataset(val_ids, args, sa_labels, main_objects)
-    test_dataset = OAcEImgDataset(test_ids, args, sa_labels, main_objects)
+    train_dataset = OAcEClipDataset(train_ids, args, sa_labels, main_objects)
+    val_dataset = OAcEClipDataset(val_ids, args, sa_labels, main_objects)
+    test_dataset = OAcEClipDataset(test_ids, args, sa_labels, main_objects)
 
     train_loader = DataLoader(
-        train_dataset, batch_size=args.AcE_batch_size, shuffle=True
+        train_dataset,
+        batch_size=args.AcE_batch_size,
+        shuffle=True,
+        num_workers=5,
+        pin_memory=True,
     )
-    val_loader = DataLoader(val_dataset, batch_size=args.AcE_batch_size, shuffle=False)
+    val_loader = DataLoader(
+        val_dataset, batch_size=args.AcE_batch_size, shuffle=False, num_workers=5
+    )
     test_loader = DataLoader(
-        test_dataset, batch_size=args.AcE_batch_size, shuffle=False
+        test_dataset, batch_size=args.AcE_batch_size, shuffle=False, num_workers=5
     )
 
     return (

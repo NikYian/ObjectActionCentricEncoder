@@ -1,6 +1,7 @@
 
 ssv2/webm/*
 ssv2/mp4/*
+ssv2/CLIP_features/*
 ssv2/object_crops/*
 ssv2/VAE_features/*
 ssv2/something_else/*

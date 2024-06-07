@@ -16,7 +16,13 @@ class AcEnn(nn.Module):
         # for param in self.preprocess.parameters():
         #     param.requires_grad = False
 
-        self.head = nn.Linear(self.clip.visual.output_dim, args.AcE_feature_size)
+        # self.head = nn.Linear(self.clip.visual.output_dim, args.AcE_feature_size)
+
+        self.head = nn.Sequential(
+            nn.Linear(self.clip.visual.output_dim, args.AcE_hidden_size),
+            nn.ReLU(inplace=True),
+            nn.Linear(args.AcE_hidden_size, args.AcE_feature_size),
+        )
 
         self.aff_anchors = None
 
@@ -42,6 +48,11 @@ class AcEnn(nn.Module):
         features = self.head(clip_features)
         return features
 
+    def forward_CLIP(self, features):
+        features = features.to(torch.float32)
+        features = self.head(features)
+        return features
+
     def update_aff_anchors(self):
         self.aff_anchors = []
         for aff_sentense in self.args.affordance_sentences:
@@ -49,10 +60,10 @@ class AcEnn(nn.Module):
             self.aff_anchors.append(anchor_features)
         self.aff_anchors = torch.cat(self.aff_anchors, dim=0)
 
-    def ZS_predict(self, images):
+    def ZS_predict(self, AcE_features):
 
-        image_features = self.forward(images)
-        features_norm = torch.nn.functional.normalize(image_features, dim=1)
+        # image_features = self.forward(images)
+        features_norm = torch.nn.functional.normalize(AcE_features, dim=1)
         anchors_norm = torch.nn.functional.normalize(self.aff_anchors, dim=1)
         similarities = torch.mm(features_norm, torch.transpose(anchors_norm, 0, 1))
         similarities = similarities + 1

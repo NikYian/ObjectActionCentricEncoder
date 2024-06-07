@@ -8,8 +8,10 @@ import json
 from PIL import Image
 from tqdm import tqdm
 import numpy as np
+import clip
 
 from models.teacher import load_teacher
+from models.AcE import AcEnn
 from datasets.video_dataset import build_video_dataset
 from args import Args
 
@@ -44,6 +46,43 @@ def frame2objcrop(box_annotations):
                         break
             else:
                 print(f"Frame image not found: {frame_path}")
+
+
+def generate_clip_features(args, box_annotations):
+    CLIP, preprocess = clip.load(args.CLIP_model, device=args.device)
+    crop_dir = "/gpu-data2/nyian/ssv2/object_crops"
+    output_dir = "/gpu-data2/nyian/ssv2/CLIP_features"
+    for video_id, ann in tqdm(box_annotations.items()):
+        directory_path = os.path.join(output_dir, video_id)
+        os.makedirs(directory_path, exist_ok=True)
+        annotations = ann["ann"]
+        affordance = ann["affordance"]
+        aff_sentense = args.affordance_sentences[affordance]
+        for frame in annotations:
+            fname = frame["name"].split(".")[0]
+            image_file_path = os.path.join(output_dir, fname + "_i.npy")
+            text_file_path = os.path.join(output_dir, fname + "_t.npy")
+
+            # Check if both files already exist
+            if os.path.exists(image_file_path) and os.path.exists(text_file_path):
+                continue  # Skip this frame if both files already exist
+
+            crop_path = os.path.join(crop_dir, frame["name"])
+            try:
+                image = Image.open(crop_path)
+            except IOError:
+                print(f"Error opening image: {crop_path}")
+                continue
+            image_tensor = preprocess(image).to(args.device).unsqueeze(0)
+            image_features = CLIP.encode_image(image_tensor)
+            img_features_numpy = image_features.cpu().detach().numpy().reshape(512)
+            np.save(image_file_path, img_features_numpy)
+
+            tokenized_text = clip.tokenize([aff_sentense])
+            tokenized_text = tokenized_text.to(args.device)
+            text_features = CLIP.encode_text(tokenized_text)
+            txt_features_numpy = text_features.cpu().detach().numpy().reshape(512)
+            np.save(text_file_path, txt_features_numpy)
 
 
 def generate_targets_from_teacer(args, video_ids):
@@ -81,5 +120,11 @@ if __name__ == "__main__":
     )
     if response.lower() in ["yes", "y"]:
         generate_targets_from_teacer(args, video_ids)
+
+    response = input(
+        "Do you want to proceed with extracting the CLIP representations from the object crops? (yes/no): "
+    )
+    if response.lower() in ["yes", "y"]:
+        generate_clip_features(args, box_annotations)
 
     print("Preprocessing completed")

@@ -7,6 +7,17 @@ import pandas as pd
 from scipy.special import softmax
 from args import Args
 
+
+def check_bb(left, upper, right, lower):
+    width = int(right - left)
+    height = int(lower - upper)
+
+    if width <= 0 or height <= 0:
+        return False
+    else:
+        return True
+
+
 args = Args()
 
 print("... Loading box annotations might take a minute ...")
@@ -58,7 +69,13 @@ for dirs in ssv2_ann_dirs:
                         for item in frame["labels"]:
                             if item["gt_annotation"] == "object 0":
                                 object = item["category"]
-                                video_ann.append(frame)
+                                bbox = item["box2d"]
+                                left = bbox["x1"]
+                                upper = bbox["y1"]
+                                right = bbox["x2"]
+                                lower = bbox["y2"]
+                                if check_bb(left, upper, right, lower):
+                                    video_ann.append(frame)
 
                     # object = annotation["placeholders"][0]
                 elif args.action2aff_labels[label][1] == "object 1":
@@ -170,7 +187,12 @@ for i in range(3):
     frame_list = frame_id_lists[i]
     for video_id in video_list:
         for frame in sa_ann[video_id]["ann"]:
-            frame_list.append(frame["name"])
+            fname = frame["name"].split(".")[0]
+            if i == 1:
+                frame_list.append(fname + "_i.npy")
+                frame_list.append(fname + "_t.npy")
+            else:
+                frame_list.append(fname + "_i.npy")
 
 with open("ssv2/somethings_affordances/train.json", "w") as json_file:
     json.dump(train_ids, json_file)

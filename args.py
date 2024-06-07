@@ -138,6 +138,7 @@ class Args(argparse.Namespace):
     ]
 
     obj_crop_dir = "/gpu-data2/nyian/ssv2/object_crops"
+    clip_featrures_dir = "ssv2/CLIP_features"
     VAE_features_dir = "/gpu-data2/nyian/ssv2/VAE_features"
     sa_sample_ids = {
         "train": "ssv2/somethings_affordances/train.json",
@@ -148,13 +149,14 @@ class Args(argparse.Namespace):
     # AcE arguments
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
-    split_ratios = [0.6, 0.2, 0.2]
-    AcE_batch_size = 600
+    split_ratios = [0.4, 0.3, 0.3]
+    AcE_batch_size = 100000
     AcE_feature_size = 384
+    AcE_hidden_size = 1024
     AcE_epochs = 50
     AcE_criterion = "SmoothL1Loss"  # "MSE"
     AcE_lr = 0.0001
-    AcE_checkpoint = "checkpoints/AcE_head_49s3.pth"
+    AcE_checkpoint = None  # "checkpoints/AcE_head_49s3.pth"
     teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
     teacher_lr = 10e-4
     teacher_epochs = 5

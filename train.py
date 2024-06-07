@@ -2,7 +2,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "3"
+os.environ["CUDA_VISIBLE_DEVICES"] = "2"
 
 import torch
 import json
@@ -26,7 +26,6 @@ if __name__ == "__main__":
     train_dataset, train_loader, val_dataset, val_loader, test_dataset, test_loader = (
         generate_image_dataset(args)
     )
-
     # # subset 1 consists of examples of bottles(obj id =2) being squeezed (action id = 143)
     # # print("Generating subset 1")
     # subset1, s1_video_ids = extract_subset(

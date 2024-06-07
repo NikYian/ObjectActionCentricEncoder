@@ -53,25 +53,25 @@ class AcE_Trainer:
         for epoch in pbar:
             self.model.train()
             running_loss = 0.0
-            for i, (images, features, _, _, aff_sentence) in enumerate(
+            for i, (clip_features, target_features, _, _) in enumerate(
                 self.train_loader
             ):
-                images = images.to(self.device)
-                features = features.to(self.device)
+                clip_features = clip_features.to(self.device)
+                target_features = target_features.to(self.device)
 
                 self.optimizer.zero_grad()
-                outputs = self.model(images)
-                image_loss = self.criterion(outputs, features)
+                outputs = self.model.forward_CLIP(clip_features)
+                loss = self.criterion(outputs, target_features)
 
-                # aff_sentence = self.args.affordance_sentences[aff_label]
-                text_outputs = self.model.forward_text(aff_sentence)
-                text_loss = self.criterion(text_outputs, features)
+                # # aff_sentence = self.args.affordance_sentences[aff_label]
+                # text_outputs = self.model.forward_text(aff_sentence)
+                # text_loss = self.criterion(text_outputs, features)
 
-                loss = image_loss + text_loss
+                # loss = image_loss + text_loss
                 loss.backward()
                 self.optimizer.step()
 
-                running_loss += loss.item() * images.size(0)
+                running_loss += loss.item() * clip_features.size(0)
 
                 if i % 1 == 0:
                     self.writer.add_scalar(
@@ -87,13 +87,13 @@ class AcE_Trainer:
 
             # print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {epoch_loss:.4f}")
 
-            val_loss, characteristics_means = self.evaluate(self.val_loader)
+            val_loss = self.evaluate(self.val_loader)
             self.writer.add_scalar("val_loss", val_loss, epoch)
 
-            for i, characteristic in enumerate(
-                self.args.affordance_teacher_decoder.keys()
-            ):
-                self.writer.add_scalar(characteristic, characteristics_means[i], epoch)
+            # for i, characteristic in enumerate(
+            #     self.args.affordance_teacher_decoder.keys()
+            # ):
+            #     self.writer.add_scalar(characteristic, characteristics_means[i], epoch)
 
             # print(f"Epoch [{epoch+1}/{num_epochs}], Val Loss: {val_loss:.4f}")
 
@@ -124,16 +124,17 @@ class AcE_Trainer:
         total_samples = 0
 
         with torch.no_grad():
-            for images, _, _, multi_label_targets, _ in data_loader:
-                images = images.to(self.device)
-                breakpoint()
+            for clip_features, _, _, multi_label_targets in data_loader:
+                clip_features = clip_features.to(self.device)
                 multi_label_targets = torch.stack(multi_label_targets, dim=1).float()
                 multi_label_targets = multi_label_targets.to(self.device)
 
-                batch_size = images.size(0)
+                batch_size = clip_features.size(0)
                 total_samples += batch_size
 
-                predictions = self.model.ZS_predict(images)
+                AcE_features = self.model.forward_CLIP(clip_features)
+
+                predictions = self.model.ZS_predict(AcE_features)
 
                 # total_characteristics_sum += np.sum(res, axis=0)
 
