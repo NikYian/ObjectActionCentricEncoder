@@ -2,7 +2,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 import torch
 import json
@@ -63,7 +63,9 @@ if __name__ == "__main__":
 
     criterion = get_criterion(args)
     val_criterion = torch.nn.BCELoss()
-    optimizer = torch.optim.Adam(AcE.parameters(), lr=args.AcE_lr)
+    optimizer = torch.optim.Adam(
+        AcE.parameters(), lr=args.AcE_lr, weight_decay=args.AcE_weight_decay
+    )
 
     trainer = AcE_Trainer(
         args,
@@ -77,25 +79,28 @@ if __name__ == "__main__":
         args.log_dir,
     )
 
-    # trainer.evaluate(val_loader)
-    # # breakpoint()
-    # for images, _, _, _ in train_loader:
-    #     AcE.update_aff_anchors()
-    #     images = images.to(args.device)
-    #     test = AcE.ZS_predict(images)
-    #     breakpoint()
-
-    # if args.AcE_checkpoint:
-    #     epochs_done = os.path.basename(args.AcE_checkpoint).split("_")[2].split(".")[0]
-    #     epochs_remaining = args.AcE_epochs - int(epochs_done)
-    #     if epochs_remaining > 0:
-    #         trainer.train(num_epochs=args.AcE_epochs)
-    # else:
-    #     trainer.train(num_epochs=args.AcE_epochs)
-
+    # _, all_targets = trainer.evaluate(val_loader)
+    # num_zeros = np.sum(all_targets == 0)
+    # percentage_zeros = (num_zeros / len(all_targets)) * 10
+    # print(f"val precentage_zeros = {percentage_zeros}")
+    # _, all_targets = trainer.evaluate(test_loader)
+    # num_zeros = np.sum(all_targets == 0)
+    # percentage_zeros = (num_zeros / len(all_targets)) * 10
+    # print(f"test precentage_zeros = {percentage_zeros}")
     trainer.train(num_epochs=args.AcE_epochs)
-    test_loss = trainer.evaluate(test_loader)
-    print(f"test loss= {test_loss}")
+    test_loss, _ = trainer.evaluate(test_loader, threshold=0.6)
+    print(f"test loss 0.6= {test_loss}")
+
+    test_loss, _ = trainer.evaluate(test_loader, threshold=0.7)
+    print(f"test loss 0.7= {test_loss}")
+    test_loss, _ = trainer.evaluate(test_loader, threshold=0.8)
+    print(f"test loss 0.8= {test_loss}")
+    test_loss, _ = trainer.evaluate(test_loader, threshold=0.9)
+    print(f"test loss 0.9= {test_loss}")
+
+    test_loss, _ = trainer.evaluate(test_loader, threshold=0.7, brk=False)
+
+    breakpoint()
 
     # print(f"Test loss: {trainer.evaluate(test_loader)}")
 

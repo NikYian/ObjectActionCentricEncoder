@@ -13,6 +13,20 @@ import externals.VideoMAE.video_transforms as video_transforms
 import externals.VideoMAE.volume_transforms as volume_transforms
 
 
+class SubsetRandomSampler(torch.utils.data.Sampler):
+    """Samples elements randomly from a given list of indices, without replacement."""
+
+    def __init__(self, data_source, subset_ratio=0.2):
+        self.data_source = data_source
+        self.num_samples = int(len(data_source) * subset_ratio)
+
+    def __iter__(self):
+        return iter(torch.randperm(len(self.data_source)).tolist()[: self.num_samples])
+
+    def __len__(self):
+        return self.num_samples
+
+
 class OAcEImgDataset(Dataset):
     def __init__(self, image_ids, args, sa_labels, main_objects):
         self.args = args
@@ -78,6 +92,7 @@ class OAcEClipDataset(Dataset):
         sample_path = self.sample_paths[index]
         video_id = self.video_ids[index]
         target_path = self.target_paths[index]
+        sample_type = self.feature_ids[index].split(".")[0][-1]
         # video_id = self.image_ids[index].split("/")[0]
         clip_features = np.load(sample_path)
 
@@ -85,12 +100,16 @@ class OAcEClipDataset(Dataset):
         affordance_label = self.sa_labels[video_id]["affordance"]
         # affordance_sentense = self.args.affordance_sentences[affordance_label]
         multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
+        object = self.sa_labels[video_id]["object"]
 
         return (
             clip_features,
             target_features,
             affordance_label,
             multi_label_aff,
+            sample_type,
+            sample_path,
+            object,
         )
 
     def __len__(self):
@@ -125,18 +144,28 @@ def generate_image_dataset(args):
     val_dataset = OAcEClipDataset(val_ids, args, sa_labels, main_objects)
     test_dataset = OAcEClipDataset(test_ids, args, sa_labels, main_objects)
 
+    subset_sampler = SubsetRandomSampler(train_dataset, subset_ratio=0.2)
+
     train_loader = DataLoader(
         train_dataset,
         batch_size=args.AcE_batch_size,
-        shuffle=True,
+        sampler=subset_sampler,
+        # shuffle=True,
         num_workers=5,
         pin_memory=True,
     )
     val_loader = DataLoader(
-        val_dataset, batch_size=args.AcE_batch_size, shuffle=False, num_workers=5
+        val_dataset,
+        batch_size=args.AcE_batch_size,
+        shuffle=False,
+        num_workers=5,
+        pin_memory=True,
     )
     test_loader = DataLoader(
-        test_dataset, batch_size=args.AcE_batch_size, shuffle=False, num_workers=5
+        test_dataset,
+        batch_size=args.AcE_batch_size,
+        num_workers=5,
+        shuffle=True,
     )
 
     return (

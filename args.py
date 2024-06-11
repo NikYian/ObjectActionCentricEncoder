@@ -141,25 +141,29 @@ class Args(argparse.Namespace):
     clip_featrures_dir = "ssv2/CLIP_features"
     VAE_features_dir = "/gpu-data2/nyian/ssv2/VAE_features"
     sa_sample_ids = {
-        "train": "ssv2/somethings_affordances/train.json",
-        "val": "ssv2/somethings_affordances/val.json",
-        "test": "ssv2/somethings_affordances/test.json",
+        "train": "ssv2/somethings_affordances/train_comp.json",
+        "val": "ssv2/somethings_affordances/val_comp.json",
+        "test": "ssv2/somethings_affordances/test_comp.json",
     }
 
     # AcE arguments
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
     split_ratios = [0.4, 0.3, 0.3]
-    AcE_batch_size = 100000
+    AcE_batch_size = 1024
+    AcE_dropout_rate = 0.1
     AcE_feature_size = 384
     AcE_hidden_size = 1024
-    AcE_epochs = 50
+    AcE_hidden_layers = [1500, 2000, 1500, 700, 400]
+    AcE_epochs = 30
     AcE_criterion = "SmoothL1Loss"  # "MSE"
-    AcE_lr = 0.0001
-    AcE_checkpoint = None  # "checkpoints/AcE_head_49s3.pth"
+    AcE_lr = 10e-4
+    AcE_weight_decay = 10e-6
+    AcE_checkpoint = None  # "runs/AcE_head_29.pth"
     teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
     teacher_lr = 10e-4
     teacher_epochs = 5
+    temperature_init = 0.2
 
     labels_to_keep = [
         2,  # "Bending something so that it deforms"
@@ -277,33 +281,39 @@ class Args(argparse.Namespace):
         "bendable",
         "foldable",
         "openable/closable",
-        # "stretchable",
-        # "scoop with",
-        # "falls like a rock",
         "rollable",
-        # "falls like a feather or paper",
         "can't roll/slide",
         "squeezable",
         "containment",
-        # "pull ends to separate",
-        # "unbendable",
         "tearable",
         "plug into",
-        # "poke hole",
         "burry in/cover with",
     ]
 
+    # affordance_sentences = [
+    #     "an image of an object that can be bent",
+    #     "an image of an object that can be folded",
+    #     "an image of an object that can be opened/closed",
+    #     "an image of an object that can be rolled",
+    #     "an image of an object that can be slided",
+    #     "an image of an object that can be squeezed",
+    #     "an image of an object that can be used for containment",
+    #     "an image of an object that can be torn",
+    #     "an image of an object that can be plugged into",
+    #     "an image of an object that can be used to bury in/covered with other objects",
+    # ]
+
     affordance_sentences = [
-        "an image of an object that can be bent",
-        "an image of an object that can be folded",
-        "an image of an object that can be opened/closed",
-        "an image of an object that can be rolled",
-        "an image of an object that can be slided",
-        "an image of an object that can be squeezed",
-        "an image of an object that can be used for containment",
-        "an image of an object that can be torn",
-        "an image of an object that can be plugged into",
-        "an image of an object that can be used to bury in/covered with other objects",
+        "bendable",
+        "foldable",
+        "openable/closable",
+        "rollable",
+        "can't roll/slide",
+        "squeezable",
+        "containment",
+        "tearable",
+        "plug into",
+        "burry in/cover with",
     ]
 
     # ss2affordance = {

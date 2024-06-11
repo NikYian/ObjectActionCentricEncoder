@@ -11,6 +11,15 @@ import json
 from tqdm import tqdm
 import glob
 import numpy as np
+import torch.optim.lr_scheduler as lr_scheduler
+from sklearn.metrics import (
+    hamming_loss,
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+    roc_auc_score,
+)
 
 
 class AcE_Trainer:
@@ -41,11 +50,13 @@ class AcE_Trainer:
         self.writer = SummaryWriter(log_dir=self.log_dir)
 
     def train(self, num_epochs):
-        best_val_loss = float("inf")
+        # best_val_loss = float("inf")
+        best_val_acc = 0
         epoch_loss = 0
-        val_loss = 0
-
-        # characteristics_means = np.zeros((num_epochs, 8))
+        val_acc = 0
+        scheduler = lr_scheduler.StepLR(
+            self.optimizer, step_size=10, gamma=0.5, verbose=True
+        )
 
         pbar = tqdm(
             range(num_epochs),
@@ -53,21 +64,45 @@ class AcE_Trainer:
         for epoch in pbar:
             self.model.train()
             running_loss = 0.0
-            for i, (clip_features, target_features, _, _) in enumerate(
-                self.train_loader
-            ):
+
+            for i, (
+                clip_features,
+                target_features,
+                affordance_labels,
+                multi_label_targets,
+                sample_type,
+                sample_path,
+                _,
+            ) in enumerate(self.train_loader):
+                self.model.update_aff_anchors()
+                self.optimizer.zero_grad()
+
                 clip_features = clip_features.to(self.device)
                 target_features = target_features.to(self.device)
+                outputs, similarities = self.model.forward_CLIP_action_pred(
+                    clip_features, affordance_labels
+                )
+                loss_i = self.criterion(outputs, target_features)
 
-                self.optimizer.zero_grad()
-                outputs = self.model.forward_CLIP(clip_features)
-                loss = self.criterion(outputs, target_features)
+                multi_label_targets = (
+                    torch.stack(multi_label_targets).transpose(0, 1).to(self.device)
+                )
+                # MSE = nn.MSELoss()
+                loss_t = self.criterion(similarities, multi_label_targets)
 
-                # # aff_sentence = self.args.affordance_sentences[aff_label]
-                # text_outputs = self.model.forward_text(aff_sentence)
-                # text_loss = self.criterion(text_outputs, features)
+                # action_pred = similarities[
+                #     torch.arange(len(clip_features)), affordance_labels
+                # ]
+                # mask = [sample == "i" for sample in sample_type]
+                # filtered_action_pred = action_pred[mask]
+                # targets = torch.ones_like(filtered_action_pred)
+                # # MSE = nn.MSELoss()
+                # loss_t = self.criterion(filtered_action_pred, targets)
+                print(f"losst {loss_t}")
+                print(f"lossi {loss_i}")
 
-                # loss = image_loss + text_loss
+                loss = 0.3 * loss_t + loss_i
+                # loss = loss_i
                 loss.backward()
                 self.optimizer.step()
 
@@ -75,56 +110,62 @@ class AcE_Trainer:
 
                 if i % 1 == 0:
                     self.writer.add_scalar(
-                        "training_loss", loss.item(), epoch * len(self.train_loader) + i
+                        "training_loss",
+                        loss.item(),
+                        epoch * len(self.train_loader) + i,
                     )
 
                 pbar.set_description(
-                    desc=f"Batch {i}/{len(self.train_loader)}. Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
+                    desc=f"Batch {i}/{len(self.train_loader)}. Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Acc: {val_acc:.4f}, Best Val Acc: {best_val_acc:.4f} "
                 )
 
             epoch_loss = running_loss / len(self.train_loader.dataset)
             self.writer.add_scalar("epoch_training_loss", epoch_loss, epoch)
+            val_acc, _ = self.evaluate(self.val_loader)
+            print(similarities[:3])
+            # breakpoint()
+            # print(self.model.temperatures)
+            self.writer.add_scalar("val_acc", val_acc, epoch)
+            scheduler.step()
+            pbar.set_description(
+                desc=f"Batch {i}/{len(self.train_loader)}. Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Acc: {val_acc:.4f}, Best Val Acc: {best_val_acc:.4f} "
+            )
 
-            # print(f"Epoch [{epoch+1}/{num_epochs}], Train Loss: {epoch_loss:.4f}")
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
 
-            val_loss = self.evaluate(self.val_loader)
-            self.writer.add_scalar("val_loss", val_loss, epoch)
+            pth_files = glob.glob(os.path.join(self.log_dir, "*.pth"))
+            for pth_file in pth_files:
+                os.remove(pth_file)
 
-            # for i, characteristic in enumerate(
-            #     self.args.affordance_teacher_decoder.keys()
-            # ):
-            #     self.writer.add_scalar(characteristic, characteristics_means[i], epoch)
+            torch.save(
+                self.model.head.state_dict(),
+                os.path.join(self.log_dir, "AcE_head_" + str(epoch) + ".pth"),
+            )
 
-            # print(f"Epoch [{epoch+1}/{num_epochs}], Val Loss: {val_loss:.4f}")
-
-            # Save the best model based on validation accuracy
-            if val_loss < best_val_loss:
-                best_val_loss = val_loss
-
-                pth_files = glob.glob(os.path.join(self.log_dir, "*.pth"))
-                for pth_file in pth_files:
-                    os.remove(pth_file)
-
-                torch.save(
-                    self.model.head.state_dict(),
-                    os.path.join(self.log_dir, "AcE_head_" + str(epoch) + ".pth"),
-                )
-                # print("Best model saved!")
-                # pbar.set_description(
-                #     desc=f"tr = {characteristics_means[3]:.2f},ts = {characteristics_means[5]:.2f}, Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Loss: {val_loss:.4f}, Best Val Loss: {best_val_loss:.4f} "
-                # )
-
-    def evaluate(self, data_loader):
+    def evaluate(self, data_loader, threshold=0.7, brk=False):
         self.model.eval()
         self.model.update_aff_anchors()
-        total_loss = 0.0
-        num_batches = len(data_loader)
+        # total_loss = 0.0
+        # num_batches = len(data_loader)
 
         # total_characteristics_sum = np.zeros(8)
         total_samples = 0
 
+        pred_list = []
+        binary_pred_list = []
+        target_list = []
+
         with torch.no_grad():
-            for clip_features, _, _, multi_label_targets in data_loader:
+            for (
+                clip_features,
+                _,
+                _,
+                multi_label_targets,
+                _,
+                sample_path,
+                object,
+            ) in data_loader:
                 clip_features = clip_features.to(self.device)
                 multi_label_targets = torch.stack(multi_label_targets, dim=1).float()
                 multi_label_targets = multi_label_targets.to(self.device)
@@ -134,17 +175,58 @@ class AcE_Trainer:
 
                 AcE_features = self.model.forward_CLIP(clip_features)
 
-                predictions = self.model.ZS_predict(AcE_features)
+                predictions = self.model.ZS_predict(AcE_features, cosine=True)
+                if brk:
+                    breakpoint()
+                # threshold = 0.9
+                binary_predictions = (predictions > threshold).int()
 
-                # total_characteristics_sum += np.sum(res, axis=0)
+                pred_list.append(predictions.cpu().numpy())
+                binary_pred_list.append(binary_predictions.cpu().numpy())
+                target_list.append(multi_label_targets.cpu().numpy())
 
-                # outputs = self.model(images)
+        pred_list = np.concatenate(pred_list, axis=0)
+        binary_pred_list = np.concatenate(binary_pred_list, axis=0)
+        target_list = np.concatenate(target_list, axis=0)
 
-                loss = self.val_criterion(predictions, multi_label_targets)
-                total_loss += loss.item()
+        accuracy = np.mean(binary_pred_list == target_list)
+        print(f"Accuracy: {accuracy:.4f}")
 
-        avg_loss = total_loss / num_batches
-        # characteristics_means = total_characteristics_sum / total_samples
+        # self.evaluate_multilabel_model(target_list, binary_pred_list, pred_list)
+
         self.model.train()
 
-        return avg_loss  # , characteristics_means
+        return accuracy, target_list
+        # all_targets,
+
+    def evaluate_multilabel_model(self, y_true, y_pred, y_prob):
+        h_loss = hamming_loss(y_true, y_pred)
+        subset_acc = accuracy_score(y_true, y_pred)  # Subset accuracy
+        precision_micro = precision_score(y_true, y_pred, average="micro")
+        recall_micro = recall_score(
+            y_true, y_pred, average="micro", zero_division=np.nan
+        )
+        f1_micro = f1_score(y_true, y_pred, average="micro")
+
+        precision_macro = precision_score(
+            y_true, y_pred, average="macro", zero_division=np.nan
+        )
+        recall_macro = recall_score(
+            y_true, y_pred, average="macro", zero_division=np.nan
+        )
+        f1_macro = f1_score(y_true, y_pred, average="macro")
+
+        print(f"Hamming Loss: {h_loss:.4f}")
+        print(f"Subset Accuracy: {subset_acc:.4f}")
+        print(f"Micro Precision: {precision_micro:.4f}")
+        print(f"Micro Recall: {recall_micro:.4f}")
+        print(f"Micro F1 Score: {f1_micro:.4f}")
+        # print(f"Micro ROC-AUC: {roc_auc_micro:.4f}")
+        print(f"Macro Precision: {precision_macro:.4f}")
+        print(f"Macro Recall: {recall_macro:.4f}")
+        print(f"Macro F1 Score: {f1_macro:.4f}")
+        # print(f"Macro ROC-AUC: {roc_auc_macro:.4f}")
+
+    def print_aff(self, predictions):
+        for affordance, prediction in zip(self.args.affordances, predictions):
+            print(f"{affordance}: {prediction:.2f}")

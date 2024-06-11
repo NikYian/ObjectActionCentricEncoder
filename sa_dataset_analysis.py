@@ -2,6 +2,7 @@ import torch
 import json
 import numpy as np
 import csv
+import random
 from tqdm import tqdm
 import pandas as pd
 from scipy.special import softmax
@@ -134,8 +135,8 @@ with open("ssv2/somethings_affordances/annotations.json", "w") as json_file:
 
 main_objects = {}
 for object in objects:
-    if objects[object]["sample_num"] > 50:
-        mask = objects[object]["affordance_distribution"] > 30
+    if objects[object]["sample_num"] > 20:
+        mask = objects[object]["affordance_distribution"] > 50
         main_objects[object] = objects[object]
         main_objects[object]["affordance_labels"] = [
             int(item) for item in np.where(mask, 1, 0)
@@ -145,6 +146,12 @@ for object in objects:
             "affordance_distribution"
         ].tolist()
         main_objects[object]["affordances"] = list(main_objects[object]["affordances"])
+
+main_objects_list = list(main_objects.keys())
+random.shuffle(main_objects_list)
+split_index = int(0.8 * len(main_objects_list))
+setA = main_objects_list[:split_index]
+setB = main_objects_list[split_index:]
 
 main_objects_df = pd.DataFrame.from_dict(main_objects, orient="index")
 main_objects_df = main_objects_df.sort_values(by="sample_num", ascending=False)
@@ -178,7 +185,6 @@ for object in objects:
         train_video_ids.extend(objects[object]["video_ids"])
 
 # create a list with all the frames of the videos that contain detected object. ex. "151201/0001.jpg"
-# Assuming the lists are already defined
 video_id_lists = [test_video_ids, train_video_ids, val_video_ids]
 frame_id_lists = [test_ids, train_ids, val_ids]
 
@@ -186,19 +192,74 @@ for i in range(3):
     video_list = video_id_lists[i]
     frame_list = frame_id_lists[i]
     for video_id in video_list:
-        for frame in sa_ann[video_id]["ann"]:
+        for index, frame in enumerate(sa_ann[video_id]["ann"]):
             fname = frame["name"].split(".")[0]
             if i == 1:
                 frame_list.append(fname + "_i.npy")
                 frame_list.append(fname + "_t.npy")
             else:
                 frame_list.append(fname + "_i.npy")
+            if (
+                index == 10
+            ):  # keep only frames from beggining of video to reduce object interference
+                break
 
 with open("ssv2/somethings_affordances/train.json", "w") as json_file:
     json.dump(train_ids, json_file)
 with open("ssv2/somethings_affordances/val.json", "w") as json_file:
     json.dump(val_ids, json_file)
 with open("ssv2/somethings_affordances/test.json", "w") as json_file:
+    json.dump(test_ids, json_file)
+
+
+## create compostional train,test split from video ids
+
+train_ids = []
+val_ids = []
+test_ids = []
+
+train_video_ids = []
+val_video_ids = []
+test_video_ids = []
+
+for object in objects:
+    # if (object in main_objects and object in setA) or object not in main_objects:
+    if object in main_objects and object in setA:
+        objects[object]["video_ids"] = np.array(objects[object]["video_ids"])
+        train_video_ids.extend(objects[object]["video_ids"])
+    else:
+        objects[object]["video_ids"] = np.array(objects[object]["video_ids"])
+        np.random.shuffle(objects[object]["video_ids"])
+        split = int(len(objects[object]["video_ids"]) * 0.5)
+        test_video_ids.extend(objects[object]["video_ids"][:split])
+        val_video_ids.extend(objects[object]["video_ids"][split:])
+
+breakpoint()
+# create a list with all the frames of the videos that contain detected object. ex. "151201/0001.jpg"
+video_id_lists = [test_video_ids, train_video_ids, val_video_ids]
+frame_id_lists = [test_ids, train_ids, val_ids]
+
+for i in range(3):
+    video_list = video_id_lists[i]
+    frame_list = frame_id_lists[i]
+    for video_id in video_list:
+        for index, frame in enumerate(sa_ann[video_id]["ann"]):
+            fname = frame["name"].split(".")[0]
+            if i == 1:
+                frame_list.append(fname + "_i.npy")
+                frame_list.append(fname + "_t.npy")
+            else:
+                frame_list.append(fname + "_i.npy")
+            if (
+                index == 10
+            ):  # keep only frames from beggining of video to reduce object interference
+                break
+
+with open("ssv2/somethings_affordances/train_comp.json", "w") as json_file:
+    json.dump(train_ids, json_file)
+with open("ssv2/somethings_affordances/val_comp.json", "w") as json_file:
+    json.dump(val_ids, json_file)
+with open("ssv2/somethings_affordances/test_comp.json", "w") as json_file:
     json.dump(test_ids, json_file)
 
 
