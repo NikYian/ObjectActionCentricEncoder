@@ -7,38 +7,6 @@ from torch.nn.functional import softmax
 import torch.nn as nn
 
 
-class SmallResNet(nn.Module):
-    def __init__(self, input_dim, hidden_layers, feature_size):
-        super(SmallResNet, self).__init__()
-        self.residual_block = nn.Sequential(
-            nn.Linear(input_dim, C[0]),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_layers[0], hidden_layers[1]),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_layers[1], hidden_layers[2]),
-            nn.ReLU(inplace=True),
-        )
-        self.head = nn.Sequential(
-            nn.Linear(input_dim, hidden_layers[3]),
-            nn.ReLU(inplace=True),
-            nn.Linear(hidden_layers[3], feature_size),
-        )
-        # self.final_layer = nn.Linear(hidden_layers[2], feature_size)
-
-    def forward(self, x):
-        residual = x
-        x = self.residual_block(x)
-        x = x + residual
-        x = self.head(x)
-        return x
-
-
-# # Usage example:
-# resnet_head = SmallResNet(
-#     self.clip.visual.output_dim, args.AcE_hidden_size, args.AcE_feature_size
-# )
-
-
 class AcEnn(nn.Module):
     def __init__(self, args):
         super(AcEnn, self).__init__()
@@ -52,27 +20,47 @@ class AcEnn(nn.Module):
 
         # self.head = nn.Linear(self.clip.visual.output_dim, args.AcE_feature_size)
 
-        self.head = nn.Sequential(
-            nn.Linear(self.clip.visual.output_dim, args.AcE_hidden_layers[0]),
+        # self.head = nn.Sequential(
+        #     nn.Linear(self.clip.visual.output_dim, args.AcE_hidden_layers[0]),
+        #     nn.ReLU(inplace=True),
+        #     nn.Dropout(args.AcE_dropout_rate),
+        #     nn.Linear(args.AcE_hidden_layers[0], args.AcE_hidden_layers[1]),
+        #     nn.ReLU(inplace=True),
+        #     nn.Dropout(args.AcE_dropout_rate),
+        #     nn.Linear(args.AcE_hidden_layers[1], args.AcE_hidden_layers[2]),
+        #     nn.ReLU(inplace=True),
+        #     nn.Dropout(args.AcE_dropout_rate),
+        #     nn.Linear(args.AcE_hidden_layers[2], args.AcE_hidden_layers[3]),
+        #     nn.ReLU(inplace=True),
+        #     nn.Dropout(args.AcE_dropout_rate),
+        #     nn.Linear(args.AcE_hidden_layers[3], args.AcE_feature_size),
+        # )
+
+        layers = []
+        layers.append(nn.Linear(self.clip.visual.output_dim, args.AcE_hidden_layers[0]))
+        layers.append(nn.ReLU(inplace=True))
+        layers.append(nn.Dropout(args.AcE_dropout_rate))
+
+        # Add hidden layers
+        for i in range(len(args.AcE_hidden_layers) - 1):
+            layers.append(
+                nn.Linear(args.AcE_hidden_layers[i], args.AcE_hidden_layers[i + 1])
+            )
+            layers.append(nn.ReLU(inplace=True))
+            layers.append(nn.Dropout(args.AcE_dropout_rate))
+
+        # Add output layer
+        layers.append(nn.Linear(args.AcE_hidden_layers[-1], args.AcE_feature_size))
+        self.head = nn.Sequential(*layers)
+        self.classification_head = nn.Sequential(
             nn.ReLU(inplace=True),
-            nn.Dropout(args.AcE_dropout_rate),
-            nn.Linear(args.AcE_hidden_layers[0], args.AcE_hidden_layers[1]),
-            nn.ReLU(inplace=True),
-            nn.Dropout(args.AcE_dropout_rate),
-            nn.Linear(args.AcE_hidden_layers[1], args.AcE_hidden_layers[2]),
-            nn.ReLU(inplace=True),
-            nn.Dropout(args.AcE_dropout_rate),
-            nn.Linear(args.AcE_hidden_layers[2], args.AcE_hidden_layers[3]),
-            nn.ReLU(inplace=True),
-            nn.Dropout(args.AcE_dropout_rate),
-            nn.Linear(args.AcE_hidden_layers[3], args.AcE_feature_size),
+            nn.Linear(args.AcE_feature_size, 10),
+            nn.Sigmoid(),
         )
 
-        # self.head = SmallResNet(
-        #     self.clip.visual.output_dim, args.AcE_hidden_layers, args.AcE_feature_size
-        # )
         self.relu = torch.nn.ReLU()
         self.aff_anchors = None
+        self.aff_anchors_CLIP = None
 
         self.temperatures = nn.Parameter(torch.ones(10) * args.temperature_init)
         # self.ac_head = load_teacher(args).head  # action classification head
@@ -95,29 +83,30 @@ class AcEnn(nn.Module):
         tokenized_text = tokenized_text.to(self.args.device)
         clip_features = self.clip.encode_text(tokenized_text)
         features = self.head(clip_features)
-        return features
+        return features, clip_features
 
     def forward_CLIP(self, features):
         features = features.to(torch.float32)
         features = self.head(features)
         return features
 
-    def forward_CLIP_action_pred(self, features, affordance_labels):
+    def forward_CLIP_action_pred(self, features):
         features = features.to(torch.float32)
         features = self.head(features)
         similarities = self.ZS_predict(features, cosine=True)
-
-        # action_pred = similarities[
-        #     torch.arange(self.args.AcE_batch_size), affordance_labels
-        # ]
         return features, similarities
 
     def update_aff_anchors(self):
         self.aff_anchors = []
+        self.aff_anchors_CLIP = []
         for aff_sentense in self.args.affordance_sentences:
-            anchor_features = self.forward_text(aff_sentense).detach()
+            anchor_features, clip_features = self.forward_text(aff_sentense)
+            anchor_features.detach()
+            clip_features.detach()
             self.aff_anchors.append(anchor_features)
+            self.aff_anchors_CLIP.append(clip_features)
         self.aff_anchors = torch.cat(self.aff_anchors, dim=0)
+        self.aff_anchors_CLIP = torch.cat(self.aff_anchors_CLIP, dim=0)
         # print(self.aff_anchors[0][:10])
 
     def ZS_predict(self, AcE_features, cosine=True):
@@ -127,8 +116,8 @@ class AcEnn(nn.Module):
             anchors_norm = torch.nn.functional.normalize(self.aff_anchors, dim=1)
             similarities = torch.mm(features_norm, torch.transpose(anchors_norm, 0, 1))
             similarities = (similarities + 1) / 2
-            # similarities = (similarities - 0.5) / 0.5
-            # similarities = self.relu(similarities)
+            similarities = (similarities - 0.5) / 0.5
+            similarities = self.relu(similarities)
             return similarities
         else:
             similarities = torch.mm(
@@ -139,15 +128,16 @@ class AcEnn(nn.Module):
             result = torch.sigmoid(scaled_similarities)
             return result
 
-    # def predict_affordances(self, images):
-    #     images = self.preprocess(images)
-    #     clip_features = self.clip.encode_image(images)
-    #     batch_size = images.shape[0]
-    #     features = self.head(clip_features)
-    #     affordance_logits = self.ac_head(features).detach().cpu().numpy()
-    #     # apply softmax in pairs of 2
-    #     reshaped_tensor = torch.tensor(affordance_logits).view(batch_size, 7, 2)
-    #     softmaxed_pairs = softmax(reshaped_tensor, dim=2)
-    #     output = softmaxed_pairs.view(affordance_logits.shape).numpy()
-    #     aff = output[:, self.args.affordance_indices]
-    #     return aff
+    def ZS_predict_CLIP(self, clip_features):
+        features_norm = torch.nn.functional.normalize(clip_features, dim=1).half()
+        anchors_norm = torch.nn.functional.normalize(
+            self.aff_anchors_CLIP, dim=1
+        ).half()
+        similarities = torch.mm(features_norm, torch.transpose(anchors_norm, 0, 1))
+        similarities = (similarities + 1) / 2
+        # similarities = (similarities - 0.5) / 0.5
+        # similarities = self.relu(similarities)
+        return similarities
+
+    def predict(self, AcE_features):
+        return self.classification_head(AcE_features)

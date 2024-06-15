@@ -26,46 +26,17 @@ if __name__ == "__main__":
     train_dataset, train_loader, val_dataset, val_loader, test_dataset, test_loader = (
         generate_image_dataset(args)
     )
-    # # subset 1 consists of examples of bottles(obj id =2) being squeezed (action id = 143)
-    # # print("Generating subset 1")
-    # subset1, s1_video_ids = extract_subset(
-    #     dataset, object_ids=[2], video_cls_ls=[143], video_cls_dict=video_cls_dict
-    # )
-    # # print("Generating subset 2")
-    # # subset 2 consists of examples of bottles(obj id =2) being rolled (action id = 143) and squeezed (action id = 122)
-    # subset2, s2_video_ids = extract_subset(
-    #     dataset, object_ids=[2], video_cls_ls=[122, 143], video_cls_dict=video_cls_dict
-    # )
-
-    # subset3, s3_video_ids = extract_subset(
-    #     dataset,
-    #     object_ids=[0, 1, 2],
-    #     video_cls_ls=args.labels_to_keep,
-    #     video_cls_dict=video_cls_dict,
-    # )
-
-    # subset, video_ids = extract_subset(
-    #     dataset,
-    #     object_ids=[0, 1, 2],
-    #     video_cls_ls=args.labels_to_keep,
-    #     video_cls_dict=video_cls_dict,
-    # )
-
-    # train_loader, val_loader, test_loader = dataset_split(
-    #     subset, video_ids, args.split_ratios, args.AcE_batch_size
-    # )
 
     AcE = AcEnn(args).to(args.device)
-
-    # with open(args.ssv2_labels, "r") as f:
-    #     ssv2_labels = json.load(f)
-    #     ssv2_labels = {value: key for key, value in ssv2_labels.items()}
 
     criterion = get_criterion(args)
     val_criterion = torch.nn.BCELoss()
     optimizer = torch.optim.Adam(
         AcE.parameters(), lr=args.AcE_lr, weight_decay=args.AcE_weight_decay
     )
+
+    with open("ssv2/somethings_affordances/choose_from_N.json", "r") as json_file:
+        choose_from_N = json.load(json_file)
 
     trainer = AcE_Trainer(
         args,
@@ -75,60 +46,42 @@ if __name__ == "__main__":
         criterion,
         val_criterion,
         optimizer,
+        choose_from_N,
         args.device,
         args.log_dir,
     )
 
-    # _, all_targets = trainer.evaluate(val_loader)
+    # trainer.evaluate(test_loader, threshold=0.8, clip=True, eval=True)
+
+    # _, all_targets, pred_list = trainer.evaluate(test_loader)
     # num_zeros = np.sum(all_targets == 0)
     # percentage_zeros = (num_zeros / len(all_targets)) * 10
-    # print(f"val precentage_zeros = {percentage_zeros}")
-    # _, all_targets = trainer.evaluate(test_loader)
-    # num_zeros = np.sum(all_targets == 0)
-    # percentage_zeros = (num_zeros / len(all_targets)) * 10
-    # print(f"test precentage_zeros = {percentage_zeros}")
-    trainer.train(num_epochs=args.AcE_epochs)
-    test_loss, _ = trainer.evaluate(test_loader, threshold=0.6)
-    print(f"test loss 0.6= {test_loss}")
+    # print(f"precentage_zeros  target = {percentage_zeros}")
+    # num_zeros = np.sum(pred_list == 0)
+    # percentage_zeros = (num_zeros / len(pred_list)) * 10
+    # print(f"val precentage_zeros pred = {percentage_zeros}")
 
-    test_loss, _ = trainer.evaluate(test_loader, threshold=0.7)
-    print(f"test loss 0.7= {test_loss}")
-    test_loss, _ = trainer.evaluate(test_loader, threshold=0.8)
-    print(f"test loss 0.8= {test_loss}")
-    test_loss, _ = trainer.evaluate(test_loader, threshold=0.9)
-    print(f"test loss 0.9= {test_loss}")
+    # trainer.train(num_epochs=args.AcE_epochs, supervised=False)
+    clip = False
+    supervised = False
+    trainer.train(num_epochs=args.AcE_epochs, supervised=supervised)
+    print(0.6)
+    test_loss, _, _ = trainer.evaluate(
+        test_loader, threshold=0.6, eval=True, clip=clip, supervised=supervised
+    )
+    print(0.7)
+    test_loss, _, _ = trainer.evaluate(
+        test_loader, threshold=0.7, eval=True, clip=clip, supervised=supervised
+    )
+    print(0.8)
+    test_loss, _, _ = trainer.evaluate(
+        test_loader, threshold=0.8, eval=True, clip=clip, supervised=supervised
+    )
+    print(0.9)
+    test_loss, _, _ = trainer.evaluate(
+        test_loader, threshold=0.9, eval=True, clip=clip, supervised=supervised
+    )
 
-    test_loss, _ = trainer.evaluate(test_loader, threshold=0.7, brk=False)
+    # test_loss, _, _ = trainer.evaluate(test_loader, threshold=0.8, eval=True)
 
-    breakpoint()
-
-    # print(f"Test loss: {trainer.evaluate(test_loader)}")
-
-    # # teacher = load_teacher(args)
-    # res_top5 = []
-    # target_top5 = []
-    # for images, target_features, object_id, video_id in test_loader:
-    #     images = images.to(args.device)
-    #     target_features = target_features.to(args.device)
-    #     features = AcE(images)
-
-    #     res = AcE.predict_affordances(images)
-    #     total_squeezableness = np.mean(res[:, 5])
-    #     total_rollablenesss = np.mean(res[:, 3])
-    #     target = AcE.ac_head(target_features).topk(k=10, dim=-1).indices
-
-    #     max_sim = 0
-    #     max_sim_index = None
-
-    #     def find_closest(index, features):
-    #         for i, feature in enumerate(features):
-    #             if video_id[i] != video_id[index]:
-    #                 sim = torch.cosine_similarity(
-    #                     features[index], features[i], dim=0
-    #                 ).item()
-    #                 if sim > max_sim:
-    #                     max_sim = sim
-    #                     max_sim_index = i
-    #         return max_sim, max_sim_index
-
-    #     breakpoint()
+    # trainer.choose_from_N_test()

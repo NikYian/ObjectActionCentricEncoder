@@ -32,6 +32,7 @@ class AcE_Trainer:
         criterion,
         val_criterion,
         optimizer,
+        choose_from_N,
         device="cuda" if torch.cuda.is_available() else "cpu",
         log_dir="logs",
     ):
@@ -44,18 +45,20 @@ class AcE_Trainer:
         self.device = device
         self.log_dir = log_dir
         self.args = args
+        self.choose_from_N = choose_from_N
 
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
         self.writer = SummaryWriter(log_dir=self.log_dir)
 
-    def train(self, num_epochs):
+    def train(self, num_epochs, supervised=False):
         # best_val_loss = float("inf")
         best_val_acc = 0
         epoch_loss = 0
         val_acc = 0
+        CFN = self.choose_from_N_test()
         scheduler = lr_scheduler.StepLR(
-            self.optimizer, step_size=10, gamma=0.5, verbose=True
+            self.optimizer, step_size=5, gamma=0.5, verbose=True
         )
 
         pbar = tqdm(
@@ -79,30 +82,32 @@ class AcE_Trainer:
 
                 clip_features = clip_features.to(self.device)
                 target_features = target_features.to(self.device)
-                outputs, similarities = self.model.forward_CLIP_action_pred(
-                    clip_features, affordance_labels
-                )
-                loss_i = self.criterion(outputs, target_features)
-
                 multi_label_targets = (
                     torch.stack(multi_label_targets).transpose(0, 1).to(self.device)
                 )
-                # MSE = nn.MSELoss()
-                loss_t = self.criterion(similarities, multi_label_targets)
 
-                # action_pred = similarities[
-                #     torch.arange(len(clip_features)), affordance_labels
-                # ]
-                # mask = [sample == "i" for sample in sample_type]
-                # filtered_action_pred = action_pred[mask]
-                # targets = torch.ones_like(filtered_action_pred)
-                # # MSE = nn.MSELoss()
-                # loss_t = self.criterion(filtered_action_pred, targets)
-                print(f"losst {loss_t}")
-                print(f"lossi {loss_i}")
+                if supervised:
+                    AcE_features = self.model.forward_CLIP(clip_features)
+                    predictions = self.model.predict(AcE_features)
+                    loss = self.criterion(predictions, multi_label_targets)
 
-                loss = 0.3 * loss_t + loss_i
-                # loss = loss_i
+                else:
+                    outputs, similarities = self.model.forward_CLIP_action_pred(
+                        clip_features
+                    )
+                    loss_i = self.criterion(outputs, target_features)
+                    loss_t = self.criterion(similarities, multi_label_targets)
+
+                    # action_pred = similarities[
+                    #     torch.arange(len(clip_features)), affordance_labels
+                    # ]
+                    # mask = [sample == "i" for sample in sample_type]
+                    # filtered_action_pred = action_pred[mask]
+                    # targets = torch.ones_like(filtered_action_pred)
+                    # # MSE = nn.MSELoss()
+                    # loss_t = self.criterion(filtered_action_pred, targets)
+                    loss = loss_i + loss_t
+
                 loss.backward()
                 self.optimizer.step()
 
@@ -116,19 +121,21 @@ class AcE_Trainer:
                     )
 
                 pbar.set_description(
-                    desc=f"Batch {i}/{len(self.train_loader)}. Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Acc: {val_acc:.4f}, Best Val Acc: {best_val_acc:.4f} "
+                    desc=f"Batch {i}/{len(self.train_loader)}. Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Acc: {val_acc:.4f}, Best Val Acc: {best_val_acc:.4f}, CFN: {CFN}  "
                 )
 
             epoch_loss = running_loss / len(self.train_loader.dataset)
             self.writer.add_scalar("epoch_training_loss", epoch_loss, epoch)
-            val_acc, _ = self.evaluate(self.val_loader)
+            val_acc, _, _ = self.evaluate(
+                self.val_loader, eval=True, supervised=supervised
+            )
             print(similarities[:3])
-            # breakpoint()
-            # print(self.model.temperatures)
+
             self.writer.add_scalar("val_acc", val_acc, epoch)
             scheduler.step()
+            CFN = self.choose_from_N_test()
             pbar.set_description(
-                desc=f"Batch {i}/{len(self.train_loader)}. Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Acc: {val_acc:.4f}, Best Val Acc: {best_val_acc:.4f} "
+                desc=f"Batch {i}/{len(self.train_loader)}. Epoch {epoch+1}/{num_epochs}, Train Loss: {epoch_loss:.4f},Val Acc: {val_acc:.4f}, Best Val Acc: {best_val_acc:.4f}, CFN: {CFN} "
             )
 
             if val_acc > best_val_acc:
@@ -143,12 +150,19 @@ class AcE_Trainer:
                 os.path.join(self.log_dir, "AcE_head_" + str(epoch) + ".pth"),
             )
 
-    def evaluate(self, data_loader, threshold=0.7, brk=False):
+    def evaluate(
+        self,
+        data_loader,
+        threshold=0.8,
+        brk=False,
+        eval=False,
+        clip=False,
+        supervised=False,
+    ):
         self.model.eval()
         self.model.update_aff_anchors()
         # total_loss = 0.0
         # num_batches = len(data_loader)
-
         # total_characteristics_sum = np.zeros(8)
         total_samples = 0
 
@@ -173,11 +187,17 @@ class AcE_Trainer:
                 batch_size = clip_features.size(0)
                 total_samples += batch_size
 
-                AcE_features = self.model.forward_CLIP(clip_features)
-
-                predictions = self.model.ZS_predict(AcE_features, cosine=True)
+                if clip:
+                    predictions = self.model.ZS_predict_CLIP(clip_features)
+                elif supervised:
+                    AcE_features = self.model.forward_CLIP(clip_features)
+                    predictions = self.model.predict(AcE_features)
+                else:
+                    AcE_features = self.model.forward_CLIP(clip_features)
+                    predictions = self.model.ZS_predict(AcE_features, cosine=True)
                 if brk:
                     breakpoint()
+
                 # threshold = 0.9
                 binary_predictions = (predictions > threshold).int()
 
@@ -192,11 +212,13 @@ class AcE_Trainer:
         accuracy = np.mean(binary_pred_list == target_list)
         print(f"Accuracy: {accuracy:.4f}")
 
-        # self.evaluate_multilabel_model(target_list, binary_pred_list, pred_list)
+        if eval:
+            self.evaluate_multilabel_model(target_list, binary_pred_list, pred_list)
+            self.choose_from_N_test(clip=clip)
 
         self.model.train()
 
-        return accuracy, target_list
+        return accuracy, target_list, binary_pred_list
         # all_targets,
 
     def evaluate_multilabel_model(self, y_true, y_pred, y_prob):
@@ -230,3 +252,27 @@ class AcE_Trainer:
     def print_aff(self, predictions):
         for affordance, prediction in zip(self.args.affordances, predictions):
             print(f"{affordance}: {prediction:.2f}")
+
+    def choose_from_N_test(self, clip=False):
+        self.model.update_aff_anchors()
+        dataset = self.train_loader.dataset
+
+        correct_ans = 0
+        for sample in self.choose_from_N:
+            file_names = sample["samples"]
+            label = sample["label"]
+            file_paths = [dataset.feature_path(file_name) for file_name in file_names]
+            N_Clip_features = np.array([np.load(file_path) for file_path in file_paths])
+            clip_features = torch.tensor(N_Clip_features).to(self.device)
+            if clip:
+                predictions = self.model.ZS_predict_CLIP(clip_features)
+            else:
+                AcE_features = self.model.forward_CLIP(clip_features)
+                predictions = self.model.ZS_predict(AcE_features, cosine=True)
+            results = predictions[:, label]
+            chosen_object = torch.argmax(results).item()
+            if chosen_object == 0:
+                correct_ans += 1
+            accuracy = correct_ans / 1000
+        print(f"Choose from N accuracy: {accuracy:0.4f}")
+        return accuracy

@@ -154,14 +154,29 @@ class Args(argparse.Namespace):
     AcE_dropout_rate = 0.1
     AcE_feature_size = 384
     AcE_hidden_size = 1024
-    AcE_hidden_layers = [1500, 2000, 1500, 700, 400]
-    AcE_epochs = 30
+    AcE_hidden_layers = [1024]
+    # AcE_hidden_layers = [
+    #     500,
+    #     600,
+    #     700,
+    #     800,
+    #     900,
+    #     1000,
+    #     900,
+    #     800,
+    #     700,
+    #     600,
+    #     500,
+    #     400,
+    #     300,
+    # ]
+    AcE_epochs = 20
     AcE_criterion = "SmoothL1Loss"  # "MSE"
     AcE_lr = 10e-4
     AcE_weight_decay = 10e-6
-    AcE_checkpoint = None  # "runs/AcE_head_29.pth"
+    AcE_checkpoint = None  # "runs/AcE_head_39.pth"
     teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
-    teacher_lr = 10e-4
+    teacher_lr = 10e-5
     teacher_epochs = 5
     temperature_init = 0.2
 
