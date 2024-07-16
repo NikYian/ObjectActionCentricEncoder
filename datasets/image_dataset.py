@@ -66,7 +66,7 @@ class OAcEImgDataset(Dataset):
         return os.path.join(self.args.VAE_features_dir, fname)
 
 
-class OAcEClipDataset(Dataset):
+class ImageFeaturesDataset(Dataset):
     def __init__(self, feature_ids, args, sa_labels, main_objects):
         self.args = args
 
@@ -100,6 +100,7 @@ class OAcEClipDataset(Dataset):
         affordance_label = self.sa_labels[video_id]["affordance"]
         # affordance_sentense = self.args.affordance_sentences[affordance_label]
         multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
+        multi_label_aff[affordance_label] = 2
         object = self.sa_labels[video_id]["object"]
 
         return (
@@ -116,7 +117,7 @@ class OAcEClipDataset(Dataset):
         return len(self.sample_paths)
 
     def feature_path(self, feature_id):
-        return os.path.join(self.args.clip_featrures_dir, feature_id)
+        return os.path.join(self.args.image_featrures_dir, feature_id)
 
     def VAE_feature_path(self, video_id):
         fname = video_id + ".npy"
@@ -140,11 +141,11 @@ def generate_image_dataset(args):
     with open("ssv2/somethings_affordances/main_objects.json", "r") as f:
         main_objects = json.load(f)
 
-    train_dataset = OAcEClipDataset(train_ids, args, sa_labels, main_objects)
-    val_dataset = OAcEClipDataset(val_ids, args, sa_labels, main_objects)
-    test_dataset = OAcEClipDataset(test_ids, args, sa_labels, main_objects)
+    train_dataset = ImageFeaturesDataset(train_ids, args, sa_labels, main_objects)
+    val_dataset = ImageFeaturesDataset(val_ids, args, sa_labels, main_objects)
+    test_dataset = ImageFeaturesDataset(test_ids, args, sa_labels, main_objects)
 
-    subset_sampler = SubsetRandomSampler(train_dataset, subset_ratio=0.2)
+    subset_sampler = SubsetRandomSampler(train_dataset, subset_ratio=1)
 
     train_loader = DataLoader(
         train_dataset,

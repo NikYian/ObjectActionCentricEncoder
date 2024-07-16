@@ -9,11 +9,18 @@ from PIL import Image
 from tqdm import tqdm
 import numpy as np
 import clip
+import sys
+import torchvision.transforms as transforms
 
 from models.teacher import load_teacher
 from models.AcE import AcEnn
 from datasets.video_dataset import build_video_dataset
 from args import Args
+import torchvision.datasets as datasets
+
+sys.path.append(r"./externals/mae")
+
+import models_mae
 
 
 def frame2objcrop(box_annotations):
@@ -46,6 +53,60 @@ def frame2objcrop(box_annotations):
                         break
             else:
                 print(f"Frame image not found: {frame_path}")
+
+
+def prepare_model(chkpt_dir, arch="mae_vit_base_patch16"):
+    # build model
+    model = getattr(models_mae, arch)()
+    # load model
+    checkpoint = torch.load(chkpt_dir, map_location="cpu")
+    msg = model.load_state_dict(checkpoint["model"], strict=False)
+    print(msg)
+    return model
+
+
+def generate_mae_features(args, box_annotations):
+    chkpt_dir = "/gpu-data2/nyian/chackpoints/mae_vit_base_patch16.pth"
+    model_mae = prepare_model(chkpt_dir, "mae_vit_base_patch16").to(args.device)
+    crop_dir = "/gpu-data2/nyian/ssv2/object_crops"
+    dataset = datasets.ImageFolder(crop_dir)
+    output_dir = "/gpu-data2/nyian/ssv2/mae_features"
+    for video_id, ann in tqdm(box_annotations.items()):
+        directory_path = os.path.join(output_dir, video_id)
+        os.makedirs(directory_path, exist_ok=True)
+        annotations = ann["ann"]
+        affordance = ann["affordance"]
+        aff_sentense = args.affordance_sentences[affordance]
+        for frame in annotations:
+            fname = frame["name"].split(".")[0]
+            feature_path = os.path.join(output_dir, fname + ".npy")
+
+            # Check if both files already exist
+            if os.path.exists(feature_path):
+                continue  # Skip this frame if file already exist
+
+            crop_path = os.path.join(crop_dir, frame["name"])
+            try:
+                image = Image.open(crop_path)
+            except IOError:
+                print(f"Error opening image: {crop_path}")
+                continue
+
+            transform = transforms.Compose(
+                [
+                    transforms.Resize((224, 224)),  # Resize to 224x224
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),  # Normalization with ImageNet mean and std
+                ]
+            )
+            image = dataset.loader(crop_path)
+            image_tensor = transform(image).unsqueeze(0).to(args.device)
+            image_features = model_mae.forward_encoder(image_tensor, 0)
+            image_features = model_mae.norm(image_features[0].mean(1))
+            img_features_numpy = image_features.cpu().detach().numpy().reshape(768)
+            np.save(feature_path, img_features_numpy)
 
 
 def generate_clip_features(args, box_annotations):
@@ -126,5 +187,13 @@ if __name__ == "__main__":
     )
     if response.lower() in ["yes", "y"]:
         generate_clip_features(args, box_annotations)
+        print("CLIP features extracted succesfully")
+
+    response = input(
+        "Do you want to proceed with extracting the MAE representations from the object crops? (yes/no): "
+    )
+    if response.lower() in ["yes", "y"]:
+        generate_mae_features(args, box_annotations)
+        print("MAE features extracted succesfully")
 
     print("Preprocessing completed")

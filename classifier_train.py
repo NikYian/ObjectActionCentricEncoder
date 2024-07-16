@@ -90,5 +90,3 @@ if __name__ == "__main__":
         total_squeezableness = np.mean(res[:, 5])
         total_rollablenesss = np.mean(res[:, 3])
         target = AcE.ac_head(target_features).topk(k=10, dim=-1).indices
-
-        breakpoint()

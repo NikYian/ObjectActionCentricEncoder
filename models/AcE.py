@@ -1,69 +1,144 @@
 import torch
 import torch.nn as nn
 import clip
-from models.teacher import load_teacher
-from torch.nn.functional import softmax
-
+import sys
 import torch.nn as nn
+
+sys.path.append(r"./externals/hopfield-layers")
+sys.path.append(r"./externals/mae")
+from hflayers import HopfieldLayer, Hopfield
+import models_mae
+
+
+def prepare_model(chkpt_dir, arch="mae_vit_base_patch16"):
+    # build model
+    model = getattr(models_mae, arch)()
+    # load model
+    checkpoint = torch.load(chkpt_dir, map_location="cpu")
+    msg = model.load_state_dict(checkpoint["model"], strict=False)
+    print(msg)
+    return model
+
+
+class ClassificationHead(nn.Module):
+    def __init__(self, input_size, num_classes=10, nn_type="MLP"):
+        super(ClassificationHead, self).__init__()
+        if nn_type == "MLP":
+            self.classifiers = nn.ModuleList(
+                [
+                    nn.Sequential(
+                        nn.ReLU(inplace=False), nn.Linear(input_size, 1), nn.Sigmoid()
+                    )
+                    for _ in range(num_classes)
+                ]
+            )
+        else:
+            self.classifiers = nn.ModuleList(
+                [
+                    nn.Sequential(
+                        HopfieldLayer(
+                            input_size=input_size,
+                            quantity=100,
+                            num_heads=1,
+                            hidden_size=input_size,
+                            stored_pattern_size=input_size,
+                            pattern_projection_size=input_size,
+                            lookup_weights_as_separated=True,
+                            output_size=1,
+                            scaling=0.2,
+                            lookup_targets_as_trainable=True,
+                            stored_pattern_as_static=True,
+                            state_pattern_as_static=True,
+                        ),
+                        nn.Sigmoid(),
+                    )
+                    for _ in range(num_classes)
+                ]
+            )
+
+    def forward(self, x):
+        outputs = [classifier(x) for classifier in self.classifiers]
+        return torch.cat(outputs, dim=-1)
 
 
 class AcEnn(nn.Module):
-    def __init__(self, args):
-        super(AcEnn, self).__init__()
-        self.args = args
+    # Action Centric Encoder Module
 
-        self.clip, self.preprocess = clip.load(args.CLIP_model, device=args.device)
+    def __init__(
+        self,
+        args,
+        head="MLP",
+        image_features="mae",
+        ACM_features="combo",
+    ):
+        super(AcEnn, self).__init__()
+        self.ACM_features = ACM_features
+        self.image_features = image_features
+        self.args = args
+        self.thresholds = torch.tensor([0.5] * 10).to(args.device)
+
         for param in self.clip.parameters():  # CLIP params are frozen
             param.requires_grad = False
-        # for param in self.preprocess.parameters():
-        #     param.requires_grad = False
-
-        # self.head = nn.Linear(self.clip.visual.output_dim, args.AcE_feature_size)
-
-        # self.head = nn.Sequential(
-        #     nn.Linear(self.clip.visual.output_dim, args.AcE_hidden_layers[0]),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(args.AcE_dropout_rate),
-        #     nn.Linear(args.AcE_hidden_layers[0], args.AcE_hidden_layers[1]),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(args.AcE_dropout_rate),
-        #     nn.Linear(args.AcE_hidden_layers[1], args.AcE_hidden_layers[2]),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(args.AcE_dropout_rate),
-        #     nn.Linear(args.AcE_hidden_layers[2], args.AcE_hidden_layers[3]),
-        #     nn.ReLU(inplace=True),
-        #     nn.Dropout(args.AcE_dropout_rate),
-        #     nn.Linear(args.AcE_hidden_layers[3], args.AcE_feature_size),
-        # )
-
-        layers = []
-        layers.append(nn.Linear(self.clip.visual.output_dim, args.AcE_hidden_layers[0]))
-        layers.append(nn.ReLU(inplace=True))
-        layers.append(nn.Dropout(args.AcE_dropout_rate))
-
-        # Add hidden layers
-        for i in range(len(args.AcE_hidden_layers) - 1):
-            layers.append(
-                nn.Linear(args.AcE_hidden_layers[i], args.AcE_hidden_layers[i + 1])
+        self.head_type = head
+        if image_features == "clip":
+            self.image_encoder, self.preprocess = clip.load(
+                args.CLIP_model, device=args.device
             )
-            layers.append(nn.ReLU(inplace=True))
+            self.image_features_dim = self.image_encoder.visual.output_dim
+            self.encode_image = self.image_encoder.encode_image
+        elif image_features == "mae":
+            chkpt_dir = "/gpu-data2/nyian/chackpoints/mae_vit_base_patch16.pth"
+            self.image_encoder = prepare_model(chkpt_dir, "mae_vit_base_patch16").to(
+                args.device
+            )
+            self.image_features_dim = 768  # MAE features
+            self.encode_image = self.encode_mae
+
+        if head == "MLP":
+            layers = []
+            layers.append(nn.Linear(self.image_features_dim, args.AcE_hidden_layers[0]))
+            layers.append(nn.ReLU(inplace=False))
             layers.append(nn.Dropout(args.AcE_dropout_rate))
 
-        # Add output layer
-        layers.append(nn.Linear(args.AcE_hidden_layers[-1], args.AcE_feature_size))
-        self.head = nn.Sequential(*layers)
-        self.classification_head = nn.Sequential(
-            nn.ReLU(inplace=True),
-            nn.Linear(args.AcE_feature_size, 10),
-            nn.Sigmoid(),
-        )
+            for i in range(len(args.AcE_hidden_layers) - 1):
+                layers.append(
+                    nn.Linear(args.AcE_hidden_layers[i], args.AcE_hidden_layers[i + 1])
+                )
+                layers.append(nn.ReLU(inplace=False))
+                layers.append(nn.Dropout(args.AcE_dropout_rate))
 
-        self.relu = torch.nn.ReLU()
-        self.aff_anchors = None
-        self.aff_anchors_CLIP = None
+            layers.append(nn.Linear(args.AcE_hidden_layers[-1], args.AcE_feature_size))
+            self.head = nn.Sequential(*layers)
+        elif head == "Hopfield":
+            self.head = HopfieldLayer(
+                input_size=self.image_features_dim,
+                quantity=1000,
+                num_heads=10,
+                hidden_size=self.image_features_dim,
+                lookup_weights_as_separated=True,
+                stored_pattern_size=self.image_features_dim,
+                pattern_projection_size=self.image_features_dim,
+                output_size=args.AcE_feature_size,
+                scaling=0.1,
+                lookup_targets_as_trainable=True,
+                stored_pattern_as_static=True,
+                state_pattern_as_static=True,
+                dropout=args.AcE_dropout_rate,
+            )
 
-        self.temperatures = nn.Parameter(torch.ones(10) * args.temperature_init)
-        # self.ac_head = load_teacher(args).head  # action classification head
+        if ACM_features == "image":
+            self.classification_head = ClassificationHead(
+                input_size=self.image_features_dim, nn_type=args.ACM_type
+            )
+        elif ACM_features == "AcE":
+            self.classification_head = ClassificationHead(
+                input_size=args.AcE_feature_size, nn_type=args.ACM_type
+            )
+        elif ACM_features == "combo":
+            self.classification_head = ClassificationHead(
+                input_size=args.AcE_feature_size + self.image_features_dim,
+                nn_type=args.ACM_type,
+            )
 
         for param in self.parameters():
             param.data = param.data.to(torch.float32)
@@ -71,73 +146,55 @@ class AcEnn(nn.Module):
         if args.AcE_checkpoint:
             checkpoint = torch.load(args.AcE_checkpoint)
             self.head.load_state_dict(checkpoint)
+            print(f"AcE was loded from {args.AcE_checkpoint}")
+
+        if args.ACM_checkpoint:
+            checkpoint = torch.load(args.ACM_checkpoint)
+            self.classification_head.load_state_dict(checkpoint)
+            print(f"ACM was loded from {args.ACM_checkpoint}")
+
+    def encode_mae(self, images):
+        image_features = self.image_encoder.forward_encoder(images, 0)
+        image_features = self.image_encoder.norm(image_features[0].mean(1))
+        return image_features
 
     def forward(self, images):
-        # images = self.preprocess(images)
-        clip_features = self.clip.encode_image(images)
-        features = self.head(clip_features)
-        return features
-
-    def forward_text(self, texts):
-        tokenized_text = clip.tokenize(texts)
-        tokenized_text = tokenized_text.to(self.args.device)
-        clip_features = self.clip.encode_text(tokenized_text)
-        features = self.head(clip_features)
-        return features, clip_features
-
-    def forward_CLIP(self, features):
-        features = features.to(torch.float32)
+        features = self.encode_image(images)
         features = self.head(features)
         return features
 
-    def forward_CLIP_action_pred(self, features):
-        features = features.to(torch.float32)
-        features = self.head(features)
-        similarities = self.ZS_predict(features, cosine=True)
-        return features, similarities
-
-    def update_aff_anchors(self):
-        self.aff_anchors = []
-        self.aff_anchors_CLIP = []
-        for aff_sentense in self.args.affordance_sentences:
-            anchor_features, clip_features = self.forward_text(aff_sentense)
-            anchor_features.detach()
-            clip_features.detach()
-            self.aff_anchors.append(anchor_features)
-            self.aff_anchors_CLIP.append(clip_features)
-        self.aff_anchors = torch.cat(self.aff_anchors, dim=0)
-        self.aff_anchors_CLIP = torch.cat(self.aff_anchors_CLIP, dim=0)
-        # print(self.aff_anchors[0][:10])
-
-    def ZS_predict(self, AcE_features, cosine=True):
-
-        if cosine:
-            features_norm = torch.nn.functional.normalize(AcE_features, dim=1)
-            anchors_norm = torch.nn.functional.normalize(self.aff_anchors, dim=1)
-            similarities = torch.mm(features_norm, torch.transpose(anchors_norm, 0, 1))
-            similarities = (similarities + 1) / 2
-            similarities = (similarities - 0.5) / 0.5
-            similarities = self.relu(similarities)
-            return similarities
+    def forward_image_features(self, features):
+        if self.head_type == "MLP":
+            features = features.to(torch.float32)
+            AcE_features = self.head(features)
         else:
-            similarities = torch.mm(
-                AcE_features, torch.transpose(self.aff_anchors, 0, 1)
-            ).detach()
-            temperatures = self.temperatures.view(1, -1)
-            scaled_similarities = similarities * temperatures
-            result = torch.sigmoid(scaled_similarities)
-            return result
+            features = features.to(torch.float32)
+            features = features.unsqueeze(0)
+            AcE_features = self.head(features).squeeze(0)
+        return AcE_features
 
-    def ZS_predict_CLIP(self, clip_features):
-        features_norm = torch.nn.functional.normalize(clip_features, dim=1).half()
-        anchors_norm = torch.nn.functional.normalize(
-            self.aff_anchors_CLIP, dim=1
-        ).half()
-        similarities = torch.mm(features_norm, torch.transpose(anchors_norm, 0, 1))
-        similarities = (similarities + 1) / 2
-        # similarities = (similarities - 0.5) / 0.5
-        # similarities = self.relu(similarities)
-        return similarities
-
-    def predict(self, AcE_features):
-        return self.classification_head(AcE_features)
+    def predict_aff_image_features(self, features):
+        if self.ACM_features == "image":
+            if self.args.ACM_type == "Hopfield":
+                predictions = self.classification_head(
+                    features.detach().float().unsqueeze(0)
+                ).squeeze(0)
+            else:
+                predictions = self.classification_head(features.detach().float())
+        elif self.ACM_features == "AcE":
+            if self.args.ACM_type == "Hopfield":
+                features = self.forward_image_features(features).detach().unsqueeze(0)
+                predictions = self.classification_head(features).squeeze(0)
+            else:
+                features = self.forward_image_features(features).detach()
+                predictions = self.classification_head(features)
+        elif self.ACM_features == "combo":
+            if self.args.ACM_type == "Hopfield":
+                AcE_features = self.forward_image_features(features).detach()
+                features = torch.cat((AcE_features, features), dim=1).unsqueeze(0)
+                predictions = self.classification_head(features).squeeze(0)
+            else:
+                AcE_features = self.forward_image_features(features).detach()
+                features = torch.cat((AcE_features, features), dim=1)
+                predictions = self.classification_head(features)
+        return predictions

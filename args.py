@@ -138,20 +138,29 @@ class Args(argparse.Namespace):
     ]
 
     obj_crop_dir = "/gpu-data2/nyian/ssv2/object_crops"
-    clip_featrures_dir = "ssv2/CLIP_features"
+    image_featrures_dir = (
+        "ssv2/mae_features"  # "ssv2/CLIP_features" or "ssv2/mae_features"
+    )
     VAE_features_dir = "/gpu-data2/nyian/ssv2/VAE_features"
     sa_sample_ids = {
-        "train": "ssv2/somethings_affordances/train_comp.json",
+        "train": "ssv2/somethings_affordances/train_comp_no_text.json",
         "val": "ssv2/somethings_affordances/val_comp.json",
         "test": "ssv2/somethings_affordances/test_comp.json",
     }
 
     # AcE arguments
+    AcE_epochs = 10
+    head = "Hopfield"  # "MLP" or "Hopfield"
+    AcE_checkpoint = "runs/AcE_Hopfield.pth"
+    image_features = "mae"  # "mae" or "clip"
+    ACM_type = "Hopfield"  # "MLP" or "Hopfield"
+    ACM_checkpoint = "runs/ACM_Hopfield_combo.pth"
+    ACM_features = "combo"  # "image", "AcE", "combo"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
     split_ratios = [0.4, 0.3, 0.3]
-    AcE_batch_size = 1024
-    AcE_dropout_rate = 0.1
+    AcE_batch_size = 1000
+    AcE_dropout_rate = 0.4
     AcE_feature_size = 384
     AcE_hidden_size = 1024
     AcE_hidden_layers = [1024]
@@ -170,11 +179,10 @@ class Args(argparse.Namespace):
     #     400,
     #     300,
     # ]
-    AcE_epochs = 20
     AcE_criterion = "SmoothL1Loss"  # "MSE"
-    AcE_lr = 10e-4
+    AcE_lr = 1e-4
     AcE_weight_decay = 10e-6
-    AcE_checkpoint = None  # "runs/AcE_head_39.pth"
+
     teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
     teacher_lr = 10e-5
     teacher_epochs = 5

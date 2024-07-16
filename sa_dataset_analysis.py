@@ -7,6 +7,8 @@ from tqdm import tqdm
 import pandas as pd
 from scipy.special import softmax
 from args import Args
+from glob import glob
+import os
 
 
 def check_bb(left, upper, right, lower):
@@ -138,7 +140,10 @@ with open("ssv2/somethings_affordances/annotations.json", "w") as json_file:
 main_objects = {}
 for object in objects:
     if objects[object]["sample_num"] > 20:
-        mask = objects[object]["affordance_distribution"] > 50
+        sample_num = objects[object]["sample_num"]
+        mask1 = objects[object]["affordance_distribution"] / sample_num > 0.2
+        mask2 = objects[object]["affordance_distribution"] > 50
+        mask = mask1 | mask2
         main_objects[object] = objects[object]
         main_objects[object]["affordance_labels"] = [
             int(item) for item in np.where(mask, 1, 0)
@@ -148,11 +153,13 @@ for object in objects:
             "affordance_distribution"
         ].tolist()
         main_objects[object]["affordances"] = list(main_objects[object]["affordances"])
+del main_objects["hand"]
+del main_objects["something"]
 
 main_objects_list = list(main_objects.keys())
 random.seed(3)
 random.shuffle(main_objects_list)
-split_index = int(0.8 * len(main_objects_list))
+split_index = int(0.6 * len(main_objects_list))
 setA = main_objects_list[:split_index]
 setB = main_objects_list[split_index:]
 
@@ -211,7 +218,7 @@ for i in range(3):
                 fname = frame["name"].split(".")[0]
                 if i == 1:
                     frame_list.append(fname + "_i.npy")
-                    frame_list.append(fname + "_t.npy")
+                    # frame_list.append(fname + "_t.npy")
                 else:
                     frame_list.append(fname + "_i.npy")
                 if (
@@ -249,16 +256,31 @@ for object in objects:
         test_video_ids.extend(objects[object]["video_ids"][:split])
         val_video_ids.extend(objects[object]["video_ids"][split:])
 
+
 # create a list with all the frames of the videos that contain detected object. ex. "151201/0001.jpg"
 video_id_lists = [test_video_ids, train_video_ids, val_video_ids]
 frame_id_lists = [test_ids, train_ids, val_ids]
 train_no_text = []
 
+train_videos = []
+test_videos = []
+val_videos = []
+
+video_lists = [test_videos, train_videos, val_videos]
+
 for i in range(3):
-    video_list = video_id_lists[i]
+    video_id_list = video_id_lists[i]
     frame_list = frame_id_lists[i]
-    for video_id in video_list:
+    video_list = video_lists[i]
+    for video_id in video_id_list:
         if video_id in sa_ann:
+            fname = "/gpu-data2/nyian/ssv2/jpg/" + video_id
+            img_list = sorted(
+                glob(os.path.join(fname, "*.jpg")),
+                key=lambda x: int(x.split("/")[-1].split(".")[0]),
+            )
+            frame_num = len(img_list)
+            video_list.append({"id": video_id, "length": frame_num})
             for index, frame in enumerate(sa_ann[video_id]["ann"]):
                 fname = frame["name"].split(".")[0]
                 if i == 1:
@@ -272,6 +294,7 @@ for i in range(3):
                 ):  # keep only frames from beggining of video to reduce object interference
                     break
 
+
 with open("ssv2/somethings_affordances/train_comp.json", "w") as json_file:
     json.dump(train_ids, json_file)
 with open("ssv2/somethings_affordances/val_comp.json", "w") as json_file:
@@ -280,6 +303,13 @@ with open("ssv2/somethings_affordances/test_comp.json", "w") as json_file:
     json.dump(test_ids, json_file)
 with open("ssv2/somethings_affordances/train_comp_no_text.json", "w") as json_file:
     json.dump(train_no_text, json_file)
+
+with open("ssv2/somethings_affordances/train_videos.json", "w") as json_file:
+    json.dump(train_videos, json_file)
+with open("ssv2/somethings_affordances/val_videos.json", "w") as json_file:
+    json.dump(val_videos, json_file)
+with open("ssv2/somethings_affordances/test_videos.json", "w") as json_file:
+    json.dump(test_videos, json_file)
 
 
 for video_id in sa_ann.keys():
@@ -335,5 +365,6 @@ for affordance, aff_info in affordance_info.items():
 
 with open("ssv2/somethings_affordances/choose_from_N.json", "w") as json_file:
     json.dump(choose_from_N, json_file)
+
 
 print("Annotation extraction completed")
