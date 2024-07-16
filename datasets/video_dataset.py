@@ -9,11 +9,11 @@ from datasets.ssv2 import SSVideoClsDataset
 import torch
 
 
-def build_video_dataset(args):
+def build_video_dataset(args, video_ids):
     anno_path = args.anno_path
     dataset = SSVideoClsDataset(
-        anno_path=anno_path,
-        data_path="/",
+        video_ids=video_ids,
+        data_path=args.data_path,
         clip_len=1,
         num_segment=args.num_frames,
         test_num_segment=args.test_num_segment,

@@ -39,7 +39,7 @@ class SSVideoClsDataset(Dataset):
 
     def __init__(
         self,
-        anno_path,
+        video_ids,
         data_path,
         clip_len=8,
         crop_size=224,
@@ -53,7 +53,7 @@ class SSVideoClsDataset(Dataset):
         test_num_crop=3,
         args=None,
     ):
-        self.anno_path = anno_path
+        self.video_ids = video_ids
         self.data_path = data_path
         self.clip_len = clip_len
         self.crop_size = crop_size
@@ -74,18 +74,21 @@ class SSVideoClsDataset(Dataset):
             )
         self.get_whole_video = False
 
-        import pandas as pd
+        # import pandas as pd
 
-        cleaned = pd.read_csv(self.anno_path, header=None, delimiter=" ")
-        cleaned_samples = np.array(cleaned.values[:, 0])
-        cleaned_labels = np.array(cleaned.values[:, 1])
+        # cleaned = pd.read_csv(self.anno_path, header=None, delimiter=" ")
+        # cleaned_samples = np.array(cleaned.values[:, 0])
+        # cleaned_labels = np.array(cleaned.values[:, 1])
 
-        indices_to_keep = [
-            i for i, label in enumerate(cleaned_labels) if label in args.labels_to_keep
+        # indices_to_keep = [
+        #     i for i, label in enumerate(cleaned_labels) if label in args.labels_to_keep
+        # ]
+
+        self.dataset_samples = [
+            os.path.join(data_path, f"{video_id}.mp4") for video_id in video_ids
         ]
 
-        self.dataset_samples = cleaned_samples[indices_to_keep]
-        self.label_array = cleaned_labels[indices_to_keep]
+        # self.label_array = cleaned_labels[indices_to_keep]
 
         # self.dataset_samples = list(cleaned.values[:, 0])
         # self.label_array = list(cleaned.values[:, 1])
@@ -170,8 +173,9 @@ class SSVideoClsDataset(Dataset):
             buffer = self.data_transform(buffer)
         return (
             buffer,
-            self.args.ss2affordance[self.label_array[index]],
-            sample.split("/")[-1].split(".")[0],
+            self.video_ids[index],
+            # self.args.ss2affordance[self.label_array[index]],
+            # sample.split("/")[-1].split(".")[0],
         )
 
     def __len__(self):

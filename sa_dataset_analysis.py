@@ -2,10 +2,24 @@ import torch
 import json
 import numpy as np
 import csv
+import random
 from tqdm import tqdm
 import pandas as pd
 from scipy.special import softmax
 from args import Args
+from glob import glob
+import os
+
+
+def check_bb(left, upper, right, lower):
+    width = int(right - left)
+    height = int(lower - upper)
+
+    if width <= 0 or height <= 0:
+        return False
+    else:
+        return True
+
 
 args = Args()
 
@@ -22,32 +36,16 @@ sa_ann = {}
 # video ids of all videos annotated at Something-Else
 video_ids = list(box_annotations.keys())
 
-# filename = "ssv2/something_else_ids.csv"
-
-# # Open the file in write mode
-# with open(filename, "w", newline="") as file:
-#     # Loop through the list of IDs
-#     for id in video_ids:
-#         # Write each ID to a new line in the file
-#         file.write(str(id) + "\n")
-
 # action labels from Something's Affordance subset
 labels_to_keep = np.array(list(args.action2aff_labels.keys()))
 
-# affordances = set()
-# # get affordance list
-# for key, value in args.action2aff_labels.items():
-#     affordances.add(value[2])
-# affordances = np.array(list(affordances))
-
 affordances = np.array(args.affordances)
-
 
 # dataset info
 somethings_aff_categories = {label: {"sample_num": 0} for label in labels_to_keep}
 objects = {}
 affordance_info = {}
-
+sa_labels = {}
 
 with open("ssv2/labels.json", "r") as f:
     label_encoder = json.load(f)
@@ -74,7 +72,13 @@ for dirs in ssv2_ann_dirs:
                         for item in frame["labels"]:
                             if item["gt_annotation"] == "object 0":
                                 object = item["category"]
-                                video_ann.append(frame)
+                                bbox = item["box2d"]
+                                left = bbox["x1"]
+                                upper = bbox["y1"]
+                                right = bbox["x2"]
+                                lower = bbox["y2"]
+                                if check_bb(left, upper, right, lower):
+                                    video_ann.append(frame)
 
                     # object = annotation["placeholders"][0]
                 elif args.action2aff_labels[label][1] == "object 1":
@@ -85,25 +89,25 @@ for dirs in ssv2_ann_dirs:
                                 video_ann.append(frame)
                     # object = annotation["placeholders"][0]
 
-                if affordance in affordance_info:
+                if affordance in affordance_info and video_ann:
                     affordance_info[affordance]["sample_num"] += 1
                     affordance_info[affordance]["objects"].add(object)
-                else:
+                elif video_ann:
                     affordance_info[affordance] = {}
                     affordance_info[affordance]["sample_num"] = 1
                     affordance_info[affordance]["objects"] = {object}
 
                 # generate object affordances from ssv2 actions and also count how many
                 # times each object appears in the Something's Affordance subset
-                if object in objects:
-                    objects[object]["affordance_labels"].add(label)
+                if object in objects and video_ann:
+                    # objects[object]["affordance_labels"].add(label)
                     objects[object]["video_ids"].append(video_id)
                     objects[object]["sample_num"] += 1
                     objects[object]["affordances"].add(args.action2aff_labels[label][2])
                     objects[object]["affordance_distribution"][
                         np.where(affordances == affordance)[0][0]
                     ] += 1
-                else:
+                elif video_ann:
                     objects[object] = {}
                     objects[object]["video_ids"] = [video_id]
                     objects[object]["affordance_distribution"] = np.zeros(
@@ -112,38 +116,78 @@ for dirs in ssv2_ann_dirs:
                     objects[object]["affordance_distribution"][
                         np.where(affordances == affordance)[0][0]
                     ] += 1
-                    objects[object]["affordance_labels"] = {label}
+                    # objects[object]["affordance_labels"] = {label}
                     objects[object]["sample_num"] = 1
                     objects[object]["affordances"] = {args.action2aff_labels[label][2]}
 
-                sa_ann[video_id] = {
-                    "ann": video_ann,
-                    "obj": args.action2aff_labels[label][1],
-                }
+                if video_ann:
+                    sa_ann[video_id] = {
+                        "ann": video_ann,
+                        "obj": args.action2aff_labels[label][1],
+                        "object": object,
+                        "affordance": int(np.where(affordances == affordance)[0][0]),
+                    }
 
                 # count how many samples in each affordance category
                 somethings_aff_categories[label]["sample_num"] += 1
                 ssv2_annotations[video_id] = annotation
                 ssv2_annotations[video_id]["label"] = label
 
+
 with open("ssv2/somethings_affordances/annotations.json", "w") as json_file:
-    json.dump(sa_ann, json_file, indent=4)
+    json.dump(sa_ann, json_file)
 
 main_objects = {}
 for object in objects:
-    if objects[object]["sample_num"] > 50:
-        mask = objects[object]["affordance_distribution"] > 30
+    if objects[object]["sample_num"] > 20:
+        sample_num = objects[object]["sample_num"]
+        mask1 = objects[object]["affordance_distribution"] / sample_num > 0.2
+        mask2 = objects[object]["affordance_distribution"] > 50
+        mask = mask1 | mask2
         main_objects[object] = objects[object]
-        main_objects[object]["affordance_labels"] = list(np.where(mask, 1, 0))
-    # sum = np.sum(objects[object]["affordance_distribution"])
-    # objects[object]["affordance_distribution"] = list(
-    #     objects[object]["affordance_distribution"] / sum
-    # )
+        main_objects[object]["affordance_labels"] = [
+            int(item) for item in np.where(mask, 1, 0)
+        ]
+        # main_objects[object]["video_ids"] = main_objects[object]["video_ids"].to_list()
+        main_objects[object]["affordance_distribution"] = main_objects[object][
+            "affordance_distribution"
+        ].tolist()
+        main_objects[object]["affordances"] = list(main_objects[object]["affordances"])
+del main_objects["hand"]
+del main_objects["something"]
+
+main_objects_list = list(main_objects.keys())
+random.seed(3)
+random.shuffle(main_objects_list)
+split_index = int(0.6 * len(main_objects_list))
+setA = main_objects_list[:split_index]
+setB = main_objects_list[split_index:]
+
+main_objects_df = pd.DataFrame.from_dict(main_objects, orient="index")
+main_objects_df = main_objects_df.sort_values(by="sample_num", ascending=False)
+
+
+with open("ssv2/somethings_affordances/main_objects.json", "w") as json_file:
+    json.dump(main_objects, json_file, indent=4)
+
+main_objects_set = set(main_objects.keys())
+for affordance in affordance_info.keys():
+    negative_objects = []
+    for object in main_objects.keys():
+        if object not in affordance_info[affordance]["objects"]:
+            negative_objects.append(object)
+    aff_objects = main_objects_set & affordance_info[affordance]["objects"]
+    affordance_info[affordance]["objects"] = aff_objects
+    affordance_info[affordance]["negative_objects"] = negative_objects
+
 
 train_ids = []
 val_ids = []
 test_ids = []
 
+train_video_ids = []
+val_video_ids = []
+test_video_ids = []
 
 ## create train,test split from video ids
 
@@ -155,12 +199,33 @@ for object in objects:
         split1 = int(len(objects[object]["video_ids"]) * args.split_ratios[0])
         split2 = split1 + int(len(objects[object]["video_ids"]) * args.split_ratios[1])
 
-        train_ids.extend(objects[object]["video_ids"][:split1])
-        val_ids.extend(objects[object]["video_ids"][split1:split2])
-        test_ids.extend(objects[object]["video_ids"][split2:])
+        train_video_ids.extend(objects[object]["video_ids"][:split1])
+        val_video_ids.extend(objects[object]["video_ids"][split1:split2])
+        test_video_ids.extend(objects[object]["video_ids"][split2:])
     else:
-        train_ids.extend(objects[object]["video_ids"])
-breakpoint()
+        train_video_ids.extend(objects[object]["video_ids"])
+
+# create a list with all the frames of the videos that contain detected object. ex. "151201/0001.jpg"
+video_id_lists = [test_video_ids, train_video_ids, val_video_ids]
+frame_id_lists = [test_ids, train_ids, val_ids]
+
+for i in range(3):
+    video_list = video_id_lists[i]
+    frame_list = frame_id_lists[i]
+    for video_id in video_list:
+        if video_id in sa_ann:
+            for index, frame in enumerate(sa_ann[video_id]["ann"]):
+                fname = frame["name"].split(".")[0]
+                if i == 1:
+                    frame_list.append(fname + "_i.npy")
+                    # frame_list.append(fname + "_t.npy")
+                else:
+                    frame_list.append(fname + "_i.npy")
+                if (
+                    index == 10
+                ):  # keep only frames from beggining of video to reduce object interference
+                    break
+
 with open("ssv2/somethings_affordances/train.json", "w") as json_file:
     json.dump(train_ids, json_file)
 with open("ssv2/somethings_affordances/val.json", "w") as json_file:
@@ -168,31 +233,138 @@ with open("ssv2/somethings_affordances/val.json", "w") as json_file:
 with open("ssv2/somethings_affordances/test.json", "w") as json_file:
     json.dump(test_ids, json_file)
 
-breakpoint()
 
-objects_df = pd.DataFrame.from_dict(main_objects, orient="index")
-objects_df = objects_df.sort_values(by="sample_num", ascending=False)
-objects_dict = objects_df.to_dict(orient="index")
-objects_json = pd.Series(objects_dict).to_json(orient="records")
+## create compostional train,test split from video ids
 
-with open("ssv2/somethings_affordances/main_objects.json", "w") as f:
-    f.write(objects_json)
-# objects_df2 = objects_df[["affordance_labels", "sample_num"]]
-# objects_df2.to_csv("ssv2/somethings_affordances/sa_objects.csv", index=True)
+train_ids = []
+val_ids = []
+test_ids = []
 
-# video_ids = list(sa_ann.keys())
-# filename = "ssv2/somethings_aff_ids.csv"
-# # Open the file in write mode
-# with open(filename, "w", newline="") as file:
-#     # Loop through the list of IDs
-#     for id in video_ids:
-#         # Write each ID to a new line in the file
-#         file.write(str(id) + "\n")
+train_video_ids = []
+val_video_ids = []
+test_video_ids = []
 
-# somethings_aff_categories = pd.DataFrame.from_dict(
-#     somethings_aff_categories, orient="index"
-# )
-# affordance_info_df = pd.DataFrame.from_dict(affordance_info, orient="index")
+for object in objects:
+    # if (object in main_objects and object in setA) or object not in main_objects:
+    if object in main_objects and object in setA:
+        objects[object]["video_ids"] = np.array(objects[object]["video_ids"])
+        train_video_ids.extend(objects[object]["video_ids"])
+    else:
+        objects[object]["video_ids"] = np.array(objects[object]["video_ids"])
+        np.random.shuffle(objects[object]["video_ids"])
+        split = int(len(objects[object]["video_ids"]) * 0.5)
+        test_video_ids.extend(objects[object]["video_ids"][:split])
+        val_video_ids.extend(objects[object]["video_ids"][split:])
 
 
-breakpoint()
+# create a list with all the frames of the videos that contain detected object. ex. "151201/0001.jpg"
+video_id_lists = [test_video_ids, train_video_ids, val_video_ids]
+frame_id_lists = [test_ids, train_ids, val_ids]
+train_no_text = []
+
+train_videos = []
+test_videos = []
+val_videos = []
+
+video_lists = [test_videos, train_videos, val_videos]
+
+for i in range(3):
+    video_id_list = video_id_lists[i]
+    frame_list = frame_id_lists[i]
+    video_list = video_lists[i]
+    for video_id in video_id_list:
+        if video_id in sa_ann:
+            fname = "/gpu-data2/nyian/ssv2/jpg/" + video_id
+            img_list = sorted(
+                glob(os.path.join(fname, "*.jpg")),
+                key=lambda x: int(x.split("/")[-1].split(".")[0]),
+            )
+            frame_num = len(img_list)
+            video_list.append({"id": video_id, "length": frame_num})
+            for index, frame in enumerate(sa_ann[video_id]["ann"]):
+                fname = frame["name"].split(".")[0]
+                if i == 1:
+                    frame_list.append(fname + "_i.npy")
+                    frame_list.append(fname + "_t.npy")
+                    train_no_text.append(fname + "_i.npy")
+                else:
+                    frame_list.append(fname + "_i.npy")
+                if (
+                    index == 10
+                ):  # keep only frames from beggining of video to reduce object interference
+                    break
+
+
+with open("ssv2/somethings_affordances/train_comp.json", "w") as json_file:
+    json.dump(train_ids, json_file)
+with open("ssv2/somethings_affordances/val_comp.json", "w") as json_file:
+    json.dump(val_ids, json_file)
+with open("ssv2/somethings_affordances/test_comp.json", "w") as json_file:
+    json.dump(test_ids, json_file)
+with open("ssv2/somethings_affordances/train_comp_no_text.json", "w") as json_file:
+    json.dump(train_no_text, json_file)
+
+with open("ssv2/somethings_affordances/train_videos.json", "w") as json_file:
+    json.dump(train_videos, json_file)
+with open("ssv2/somethings_affordances/val_videos.json", "w") as json_file:
+    json.dump(val_videos, json_file)
+with open("ssv2/somethings_affordances/test_videos.json", "w") as json_file:
+    json.dump(test_videos, json_file)
+
+
+for video_id in sa_ann.keys():
+    sa_labels[video_id] = {}
+    for frame in sa_ann[video_id]["ann"]:
+
+        object = sa_labels[video_id]["object"] = sa_ann[video_id]["object"]
+        sa_labels[video_id]["affordance"] = int(sa_ann[video_id]["affordance"])
+        if object in main_objects:
+            sa_labels[video_id]["affordance_labels"] = main_objects[object][
+                "affordance_labels"
+            ]
+        else:
+            sa_labels[video_id]["affordance_labels"] = [0] * 10
+            sa_labels[video_id]["affordance_labels"][sa_ann[video_id]["affordance"]] = 1
+
+with open("ssv2/somethings_affordances/sa_labels.json", "w") as json_file:
+    json.dump(sa_labels, json_file)
+
+
+# for object in main_objects:
+#     video_ids =
+
+
+# choose from N test set
+def get_random_sample(object):
+    video_ids = main_objects[object]["video_ids"]
+    random_video_id = random.choice(video_ids[:10])
+    frames = sa_ann[random_video_id]["ann"]
+    if frames:
+        random_frame = random.choice(frames)
+    else:
+        breakpoint()
+    fname = random_frame["name"].split(".")[0]
+    return fname + "_i.npy"
+
+
+choose_from_N = []
+for affordance, aff_info in affordance_info.items():
+    positive_objects_set = aff_info["objects"] & set(setB)
+    negative_objects_set = set(aff_info["negative_objects"]) & set(setB)
+    for i in range(100):
+        positive_object = random.sample(positive_objects_set, 1)[0]
+        samples = [get_random_sample(positive_object)]
+        negative_objects = random.sample(negative_objects_set, 4)
+        negative_samples = [
+            get_random_sample(negative_object) for negative_object in negative_objects
+        ]
+        label = int(np.where(affordances == affordance)[0][0])
+        samples.extend(negative_samples)
+        choose_from_N.append({"samples": samples, "label": label})
+
+
+with open("ssv2/somethings_affordances/choose_from_N.json", "w") as json_file:
+    json.dump(choose_from_N, json_file)
+
+
+print("Annotation extraction completed")

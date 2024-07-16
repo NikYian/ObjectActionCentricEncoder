@@ -4,164 +4,176 @@ import os
 import clip
 import torch
 import numpy as np
-import tqdm
-from torch.utils.data import Dataset
+from tqdm import tqdm
+from torch.utils.data import Dataset, DataLoader
 
-from datasets.video_dataset import build_video_dataset
+# from datasets.video_dataset import build_video_dataset
 from models.teacher import load_teacher
 import externals.VideoMAE.video_transforms as video_transforms
 import externals.VideoMAE.volume_transforms as volume_transforms
 
 
+class SubsetRandomSampler(torch.utils.data.Sampler):
+    """Samples elements randomly from a given list of indices, without replacement."""
+
+    def __init__(self, data_source, subset_ratio=0.2):
+        self.data_source = data_source
+        self.num_samples = int(len(data_source) * subset_ratio)
+
+    def __iter__(self):
+        return iter(torch.randperm(len(self.data_source)).tolist()[: self.num_samples])
+
+    def __len__(self):
+        return self.num_samples
+
+
 class OAcEImgDataset(Dataset):
-    def __init__(self, args):
-        # self.obj_crop_dir = args.obj_crop_dir
-        # self.VAE_features_dir = args.VAE_features_dir
+    def __init__(self, image_ids, args, sa_labels, main_objects):
+        self.args = args
         _, self.preprocess = clip.load(args.CLIP_model, device=args.device)
 
-        
-
-        self.sample_paths = [
-            os.path.join(args.obj_crop_dir, file)
-            for file in os.listdir(args.obj_crop_dir)
-        ]
-        self.label_paths = {
-            fname.split(".")[0]: os.path.join(args.VAE_features_dir, fname)
-            for fname in os.listdir(args.VAE_features_dir)
-        }
-        self.data_transform = None
+        self.image_ids = image_ids
+        self.main_objects = main_objects
+        self.sa_labels = sa_labels
 
     def __getitem__(self, index):
-        sample = Image.open(self.sample_paths[index])
-        sample = self.preprocess(sample).to(torch.float32)
-        fname = os.path.basename(self.sample_paths[index])
-        video_id = fname.split("_")[0]
-        object = fname.split("_")[1]
-        if object == "object" or object == "Object":
-            object_id = 0
-        elif object == "ball":
-            object_id = 1
-        else:
-            object_id = 2
-        label = np.load(self.label_paths[video_id])
+        sample_path = self.image_path(self.image_ids[index])
+        video_id = self.image_ids[index].split("/")[0]
+        image = Image.open(sample_path)
+        image_tensor = self.preprocess(image)
+        features_path = self.VAE_feature_path(video_id)
+        features = np.load(features_path)
+        affordance_label = self.sa_labels[video_id]["affordance"]
+        affordance_sentense = self.args.affordance_sentences[affordance_label]
+        multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
 
-        return sample, label, object_id, video_id
+        return (
+            image_tensor,
+            features,
+            affordance_label,
+            multi_label_aff,
+            affordance_sentense,
+        )
+
+    def __len__(self):
+        return len(self.image_ids)
+
+    def image_path(self, image_id):
+        return os.path.join(self.args.obj_crop_dir, image_id)
+
+    def VAE_feature_path(self, video_id):
+        fname = video_id + ".npy"
+        return os.path.join(self.args.VAE_features_dir, fname)
+
+
+class ImageFeaturesDataset(Dataset):
+    def __init__(self, feature_ids, args, sa_labels, main_objects):
+        self.args = args
+
+        self.feature_ids = feature_ids
+        self.sample_paths = [self.feature_path(id) for id in feature_ids]
+        self.video_ids = [id.split("/")[0] for id in feature_ids]
+        self.target_paths = [self.VAE_feature_path(id) for id in self.video_ids]
+        print("checking availability of all samples")
+        existing_sample_paths = []
+        not_found_count = 0
+        for sample_path in tqdm(self.sample_paths):
+            if os.path.exists(sample_path):
+                existing_sample_paths.append(sample_path)
+            else:
+                not_found_count += 1
+
+        self.sample_paths = existing_sample_paths
+        print(f"{not_found_count} files were not found.")
+        self.main_objects = main_objects
+        self.sa_labels = sa_labels
+
+    def __getitem__(self, index):
+        sample_path = self.sample_paths[index]
+        video_id = self.video_ids[index]
+        target_path = self.target_paths[index]
+        sample_type = self.feature_ids[index].split(".")[0][-1]
+        # video_id = self.image_ids[index].split("/")[0]
+        clip_features = np.load(sample_path)
+
+        target_features = np.load(target_path)
+        affordance_label = self.sa_labels[video_id]["affordance"]
+        # affordance_sentense = self.args.affordance_sentences[affordance_label]
+        multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
+        multi_label_aff[affordance_label] = 2
+        object = self.sa_labels[video_id]["object"]
+
+        return (
+            clip_features,
+            target_features,
+            affordance_label,
+            multi_label_aff,
+            sample_type,
+            sample_path,
+            object,
+        )
 
     def __len__(self):
         return len(self.sample_paths)
 
+    def feature_path(self, feature_id):
+        return os.path.join(self.args.image_featrures_dir, feature_id)
 
-# class OAcEImgDataset(Dataset):
-#     def __init__(self, args):
-#         # self.obj_crop_dir = args.obj_crop_dir
-#         # self.VAE_features_dir = args.VAE_features_dir
-#         _, self.preprocess = clip.load(args.CLIP_model, device=args.device)
-
-#         self.sample_paths = [
-#             os.path.join(args.obj_crop_dir, file)
-#             for file in os.listdir(args.obj_crop_dir)
-#         ]
-#         self.label_paths = {
-#             fname.split(".")[0]: os.path.join(args.VAE_features_dir, fname)
-#             for fname in os.listdir(args.VAE_features_dir)
-#         }
-#         self.data_transform = None
-
-#     def __getitem__(self, index):
-#         sample = Image.open(self.sample_paths[index])
-#         sample = self.preprocess(sample).to(torch.float32)
-#         fname = os.path.basename(self.sample_paths[index])
-#         video_id = fname.split("_")[0]
-#         object = fname.split("_")[1]
-#         if object == "object" or object == "Object":
-#             object_id = 0
-#         elif object == "ball":
-#             object_id = 1
-#         else:
-#             object_id = 2
-#         label = np.load(self.label_paths[video_id])
-
-#         return sample, label, object_id, video_id
-
-#     def __len__(self):
-#         return len(self.sample_paths)
+    def VAE_feature_path(self, video_id):
+        fname = video_id + ".npy"
+        return os.path.join(self.args.VAE_features_dir, fname)
 
 
-def object_bb_from_annotations(args):
-    """
-    interacting_object_bb = {video_id: {'object': object_class
-                                        'bounding_boxes': {frame:(xmin, ymin, xmax, ymax)
-                                        }
-                            }
-    """
-    interacting_object_bb = {}
-    for root, dir, files in os.walk(args.annotation_dir):
-        for filename in files:
-            filepath = os.path.join(root, filename)
-            video_id = filename.split(".")[0]
-            with open(filepath, "r") as f:
-                data = json.load(f)
-            obj_bbs = {}
-            for frame in data["frames"]:
-                bb = frame["figures"][0]["geometry"]["points"]["exterior"]
-                top_left = bb[0]
-                bottom_right = bb[1]
-                xmin, ymin = top_left
-                xmax, ymax = bottom_right
-                obj_bbs[frame["index"]] = (xmin, ymin, xmax, ymax)
-            interacting_object_bb[video_id] = {}
-            interacting_object_bb[video_id]["bounding_boxes"] = obj_bbs
-            interacting_object_bb[video_id]["object"] = data["objects"][0]["classTitle"]
+def generate_image_dataset(args):
 
-    return interacting_object_bb
+    print("Importing dataset sample ids")
 
+    with open(args.sa_sample_ids["train"], "r") as f:
+        train_ids = json.load(f)
+    with open(args.sa_sample_ids["val"], "r") as f:
+        val_ids = json.load(f)
+    with open(args.sa_sample_ids["test"], "r") as f:
+        test_ids = json.load(f)
 
-def generate_image_dataset(args, gen_obj_crops=True, gen_VAE_features=True):
+    with open("ssv2/somethings_affordances/sa_labels.json", "r") as f:
+        sa_labels = json.load(f)
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    with open("ssv2/somethings_affordances/main_objects.json", "r") as f:
+        main_objects = json.load(f)
 
-    video_dataset, video_dataloader = build_video_dataset(args)
-    video_dataset.get_whole_video_switch()
-    iobb = object_bb_from_annotations(args)  # iobb = interacting object bounding boxes
+    train_dataset = ImageFeaturesDataset(train_ids, args, sa_labels, main_objects)
+    val_dataset = ImageFeaturesDataset(val_ids, args, sa_labels, main_objects)
+    test_dataset = ImageFeaturesDataset(test_ids, args, sa_labels, main_objects)
 
-    # generate object crops
-    if gen_obj_crops:
-        for video in tqdm.tqdm(video_dataset):
-            video_id = video[2]
-            if video_id in iobb:
-                bbs = iobb[video_id]["bounding_boxes"]
-                object = iobb[video_id]["object"]
-                frames = video[0]
-                for frame, bb in bbs.items():
-                    xmin, ymin, xmax, ymax = bb
-                    obj_crop = frames[frame][ymin:ymax, xmin:xmax]
-                    pil_img = Image.fromarray(obj_crop)
-                    pil_img.save(
-                        args.obj_crop_dir
-                        + "/"
-                        + str(video_id)
-                        + "_"
-                        + object
-                        + "_"
-                        + str(frame)
-                        + ".jpg"
-                    )
+    subset_sampler = SubsetRandomSampler(train_dataset, subset_ratio=1)
 
-    # generate VAE_features
-    if gen_VAE_features:
-        teacher = load_teacher(args)
+    train_loader = DataLoader(
+        train_dataset,
+        batch_size=args.AcE_batch_size,
+        sampler=subset_sampler,
+        # shuffle=True,
+        num_workers=5,
+        pin_memory=True,
+    )
+    val_loader = DataLoader(
+        val_dataset,
+        batch_size=args.AcE_batch_size,
+        shuffle=False,
+        num_workers=5,
+        pin_memory=True,
+    )
+    test_loader = DataLoader(
+        test_dataset,
+        batch_size=args.AcE_batch_size,
+        num_workers=5,
+        shuffle=True,
+    )
 
-        video_dataset.get_whole_video_switch()
-
-        for video in tqdm.tqdm(video_dataloader):
-            video_id = video[2][0]
-            video = video[0].to(device)
-            features = teacher.forward_features(video)
-            features_numpy = features.cpu().detach().numpy().reshape(384)
-            file_path = os.path.join(args.VAE_features_dir, video_id)
-            np.save(file_path + ".npy", features_numpy)
-
-    # create torch Dataset and Dataloader classes
-    dataset = OAcEImgDataset(args)
-
-    return dataset
+    return (
+        train_dataset,
+        train_loader,
+        val_dataset,
+        val_loader,
+        test_dataset,
+        test_loader,
+    )

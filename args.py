@@ -3,7 +3,7 @@ import torch
 
 
 class Args(argparse.Namespace):
-    batch_size = 64
+    batch_size = 1
     epochs = 40
     update_freq = 1
     save_ckpt_freq = 10
@@ -73,7 +73,7 @@ class Args(argparse.Namespace):
     # use_cls =
 
     # Dataset parameters
-    data_path = "ssv2"
+    data_path = "/gpu-data2/nyian/ssv2/mp4"
     anno_path = "ssv2/ssv2.csv"
     ssv2_labels = "ssv2/labels.json"
     eval_data_path = None
@@ -137,22 +137,56 @@ class Args(argparse.Namespace):
         "ssv2/something_else/bounding_box_smthsmth_part4.json",
     ]
 
-    obj_crop_dir = "ssv2/object_crops"
-    VAE_features_dir = "ssv2/VAE_features"
+    obj_crop_dir = "/gpu-data2/nyian/ssv2/object_crops"
+    image_featrures_dir = (
+        "ssv2/mae_features"  # "ssv2/CLIP_features" or "ssv2/mae_features"
+    )
+    VAE_features_dir = "/gpu-data2/nyian/ssv2/VAE_features"
+    sa_sample_ids = {
+        "train": "ssv2/somethings_affordances/train_comp_no_text.json",
+        "val": "ssv2/somethings_affordances/val_comp.json",
+        "test": "ssv2/somethings_affordances/test_comp.json",
+    }
 
     # AcE arguments
+    AcE_epochs = 10
+    head = "Hopfield"  # "MLP" or "Hopfield"
+    AcE_checkpoint = "runs/AcE_Hopfield.pth"
+    image_features = "mae"  # "mae" or "clip"
+    ACM_type = "Hopfield"  # "MLP" or "Hopfield"
+    ACM_checkpoint = "runs/ACM_Hopfield_combo.pth"
+    ACM_features = "combo"  # "image", "AcE", "combo"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
-    split_ratios = [0.6, 0.2, 0.2]
-    AcE_batch_size = 360
+    split_ratios = [0.4, 0.3, 0.3]
+    AcE_batch_size = 1000
+    AcE_dropout_rate = 0.4
     AcE_feature_size = 384
-    AcE_epochs = 50
+    AcE_hidden_size = 1024
+    AcE_hidden_layers = [1024]
+    # AcE_hidden_layers = [
+    #     500,
+    #     600,
+    #     700,
+    #     800,
+    #     900,
+    #     1000,
+    #     900,
+    #     800,
+    #     700,
+    #     600,
+    #     500,
+    #     400,
+    #     300,
+    # ]
     AcE_criterion = "SmoothL1Loss"  # "MSE"
-    AcE_lr = 0.0001
-    AcE_checkpoint = "checkpoints/AcE_head_49s3.pth"
+    AcE_lr = 1e-4
+    AcE_weight_decay = 10e-6
+
     teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
-    teacher_lr = 10e-4
+    teacher_lr = 10e-5
     teacher_epochs = 5
+    temperature_init = 0.2
 
     labels_to_keep = [
         2,  # "Bending something so that it deforms"
@@ -270,19 +304,38 @@ class Args(argparse.Namespace):
         "bendable",
         "foldable",
         "openable/closable",
-        # "stretchable",
-        # "scoop with",
-        # "falls like a rock",
         "rollable",
-        # "falls like a feather or paper",
         "can't roll/slide",
         "squeezable",
         "containment",
-        # "pull ends to separate",
-        # "unbendable",
         "tearable",
         "plug into",
-        # "poke hole",
+        "burry in/cover with",
+    ]
+
+    # affordance_sentences = [
+    #     "an image of an object that can be bent",
+    #     "an image of an object that can be folded",
+    #     "an image of an object that can be opened/closed",
+    #     "an image of an object that can be rolled",
+    #     "an image of an object that can be slided",
+    #     "an image of an object that can be squeezed",
+    #     "an image of an object that can be used for containment",
+    #     "an image of an object that can be torn",
+    #     "an image of an object that can be plugged into",
+    #     "an image of an object that can be used to bury in/covered with other objects",
+    # ]
+
+    affordance_sentences = [
+        "bendable",
+        "foldable",
+        "openable/closable",
+        "rollable",
+        "can't roll/slide",
+        "squeezable",
+        "containment",
+        "tearable",
+        "plug into",
         "burry in/cover with",
     ]
 
