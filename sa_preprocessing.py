@@ -1,7 +1,7 @@
 import os
 
 os.environ["CUDA_DEVICE_ORDER"] = "PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "2"
+os.environ["CUDA_VISIBLE_DEVICES"] = "3"
 
 import torch
 import json
@@ -21,6 +21,11 @@ import torchvision.datasets as datasets
 sys.path.append(r"./externals/mae")
 
 import models_mae
+
+sys.path.append(r"./externals")
+from SOLV.models.model import SOLV_nn, Visual_Encoder, MLP
+from SOLV.read_args import get_args, print_args
+import SOLV.utils
 
 
 def frame2objcrop(box_annotations):
@@ -66,7 +71,7 @@ def prepare_model(chkpt_dir, arch="mae_vit_base_patch16"):
 
 
 def generate_mae_features(args, box_annotations):
-    chkpt_dir = "/gpu-data2/nyian/chackpoints/mae_vit_base_patch16.pth"
+    chkpt_dir = "/gpu-data2/nyian/checkpoints/mae_vit_base_patch16.pth"
     model_mae = prepare_model(chkpt_dir, "mae_vit_base_patch16").to(args.device)
     crop_dir = "/gpu-data2/nyian/ssv2/object_crops"
     dataset = datasets.ImageFolder(crop_dir)
@@ -121,11 +126,10 @@ def generate_clip_features(args, box_annotations):
         aff_sentense = args.affordance_sentences[affordance]
         for frame in annotations:
             fname = frame["name"].split(".")[0]
-            image_file_path = os.path.join(output_dir, fname + "_i.npy")
-            text_file_path = os.path.join(output_dir, fname + "_t.npy")
+            image_file_path = os.path.join(output_dir, fname + ".npy")
 
             # Check if both files already exist
-            if os.path.exists(image_file_path) and os.path.exists(text_file_path):
+            if os.path.exists(image_file_path):
                 continue  # Skip this frame if both files already exist
 
             crop_path = os.path.join(crop_dir, frame["name"])
@@ -139,11 +143,11 @@ def generate_clip_features(args, box_annotations):
             img_features_numpy = image_features.cpu().detach().numpy().reshape(512)
             np.save(image_file_path, img_features_numpy)
 
-            tokenized_text = clip.tokenize([aff_sentense])
-            tokenized_text = tokenized_text.to(args.device)
-            text_features = CLIP.encode_text(tokenized_text)
-            txt_features_numpy = text_features.cpu().detach().numpy().reshape(512)
-            np.save(text_file_path, txt_features_numpy)
+            # tokenized_text = clip.tokenize([aff_sentense])
+            # tokenized_text = tokenized_text.to(args.device)
+            # text_features = CLIP.encode_text(tokenized_text)
+            # txt_features_numpy = text_features.cpu().detach().numpy().reshape(512)
+            # np.save(text_file_path, txt_features_numpy)
 
 
 def generate_targets_from_teacer(args, video_ids):
@@ -157,6 +161,64 @@ def generate_targets_from_teacer(args, video_ids):
         features_numpy = features.cpu().detach().numpy().reshape(384)
         file_path = os.path.join(args.VAE_features_dir, video_id[0])
         np.save(file_path + ".npy", features_numpy)
+
+
+def generate_SOLV_features(args, box_annotations):
+    SOLV_args = get_args()
+    train_dataloader, val_dataloader, test_loader = SOLV.utils.get_dataloaders(
+        SOLV_args
+    )
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    vis_encoder = Visual_Encoder(SOLV_args).to(device)
+    SOLV_model = SOLV_nn(SOLV_args).to(device)
+
+    to_restore = {"epoch": 0}
+    SOLV.utils.restart_from_checkpoint(
+        SOLV_args,
+        run_variables=to_restore,
+        model=SOLV_model,
+    )
+
+    inputs_output_dir = "/gpu-data2/nyian/ssv2/SOLV/inputs"
+    targets_output_dir = "/gpu-data2/nyian/ssv2/SOLV/targets"
+    for video_id, ann in tqdm(box_annotations.items()):
+        directory_path = os.path.join(output_dir, video_id)
+        os.makedirs(directory_path, exist_ok=True)
+        annotations = ann["ann"]
+        affordance = ann["affordance"]
+        aff_sentense = args.affordance_sentences[affordance]
+        for frame in annotations:
+            fname = frame["name"].split(".")[0]
+            feature_path = os.path.join(output_dir, fname + ".npy")
+
+            # Check if both files already exist
+            if os.path.exists(feature_path):
+                continue  # Skip this frame if file already exist
+
+            crop_path = os.path.join(crop_dir, frame["name"])
+            try:
+                image = Image.open(crop_path)
+            except IOError:
+                print(f"Error opening image: {crop_path}")
+                continue
+
+            transform = transforms.Compose(
+                [
+                    transforms.Resize((224, 224)),  # Resize to 224x224
+                    transforms.ToTensor(),
+                    transforms.Normalize(
+                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
+                    ),  # Normalization with ImageNet mean and std
+                ]
+            )
+            image = dataset.loader(crop_path)
+            image_tensor = transform(image).unsqueeze(0).to(args.device)
+            image_features = model_mae.forward_encoder(image_tensor, 0)
+            image_features = model_mae.norm(image_features[0].mean(1))
+            img_features_numpy = image_features.cpu().detach().numpy().reshape(768)
+            np.save(feature_path, img_features_numpy)
 
 
 if __name__ == "__main__":

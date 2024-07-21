@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 from sklearn.metrics import accuracy_score
 from torch.utils.tensorboard import SummaryWriter
-from models.utils import get_scheduler
+from utils.utils import get_scheduler
 import os
 import torch.nn.functional as F
 import json
@@ -79,7 +79,7 @@ class ACM_trainer:
                     torch.stack(multi_label_targets).transpose(0, 1).to(self.device)
                 )
 
-                predictions = self.model.predict_aff_CLIP(clip_features)
+                predictions = self.model.predict_aff_image_features(clip_features)
                 loss = self.criterion(predictions.float(), multi_label_targets.float())
 
                 loss.backward()
@@ -157,7 +157,7 @@ class ACM_trainer:
                     torch.tensor(1, device=self.device),
                     multi_label_targets,
                 )
-                predictions = self.model.predict_aff_CLIP(clip_features)
+                predictions = self.model.predict_aff_image_features(clip_features)
 
                 batch_size = clip_features.size(0)
                 total_samples += batch_size

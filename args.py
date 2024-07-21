@@ -138,29 +138,28 @@ class Args(argparse.Namespace):
     ]
 
     obj_crop_dir = "/gpu-data2/nyian/ssv2/object_crops"
-    image_featrures_dir = (
-        "ssv2/mae_features"  # "ssv2/CLIP_features" or "ssv2/mae_features"
-    )
+    image_featrures_dir = "/gpu-data2/nyian/ssv2/mae_features"  # "ssv2/CLIP_features" or "ssv2/mae_features"
     VAE_features_dir = "/gpu-data2/nyian/ssv2/VAE_features"
     sa_sample_ids = {
-        "train": "ssv2/somethings_affordances/train_comp_no_text.json",
+        "train": "ssv2/somethings_affordances/train_comp.json",
         "val": "ssv2/somethings_affordances/val_comp.json",
         "test": "ssv2/somethings_affordances/test_comp.json",
     }
 
     # AcE arguments
-    AcE_epochs = 10
-    head = "Hopfield"  # "MLP" or "Hopfield"
-    AcE_checkpoint = "runs/AcE_Hopfield.pth"
     image_features = "mae"  # "mae" or "clip"
+    AcE_epochs = 10
+    head = "MLP"  # "MLP" or "Hopfield"
+    AcE_checkpoint = "runs/AcE_MLP.pth"
+    SOLV_AcE_checkpoint = "runs/SOLV_AcE.pth"
     ACM_type = "Hopfield"  # "MLP" or "Hopfield"
-    ACM_checkpoint = "runs/ACM_Hopfield_combo.pth"
+    ACM_checkpoint = None  # "runs/ACM_Hopfield_combo.pth"
     ACM_features = "combo"  # "image", "AcE", "combo"
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
     split_ratios = [0.4, 0.3, 0.3]
     AcE_batch_size = 1000
-    AcE_dropout_rate = 0.4
+    AcE_dropout_rate = 0.1
     AcE_feature_size = 384
     AcE_hidden_size = 1024
     AcE_hidden_layers = [1024]
@@ -312,78 +311,3 @@ class Args(argparse.Namespace):
         "plug into",
         "burry in/cover with",
     ]
-
-    # affordance_sentences = [
-    #     "an image of an object that can be bent",
-    #     "an image of an object that can be folded",
-    #     "an image of an object that can be opened/closed",
-    #     "an image of an object that can be rolled",
-    #     "an image of an object that can be slided",
-    #     "an image of an object that can be squeezed",
-    #     "an image of an object that can be used for containment",
-    #     "an image of an object that can be torn",
-    #     "an image of an object that can be plugged into",
-    #     "an image of an object that can be used to bury in/covered with other objects",
-    # ]
-
-    affordance_sentences = [
-        "bendable",
-        "foldable",
-        "openable/closable",
-        "rollable",
-        "can't roll/slide",
-        "squeezable",
-        "containment",
-        "tearable",
-        "plug into",
-        "burry in/cover with",
-    ]
-
-    # ss2affordance = {
-    #     2: 0,  # Bendable
-    #     3: 0,
-    #     5: 1,  # Openable/Closabe
-    #     46: 1,
-    #     14: 2,  # Foldable
-    #     172: 2,
-    #     22: 3,  # Rollable
-    #     122: 3,
-    #     149: 4,  # Tearable
-    #     150: 4,
-    #     143: 5,
-    #     134: 6,  # Lightweight
-    #     135: 7,  # Heavy
-    # }
-
-    # affordance_decoder = {
-    #     0: "Bendable",
-    #     1: "Openable/Closabe",
-    #     2: "Foldable",
-    #     3: "Rollable",  #
-    #     4: "Tearable",
-    #     5: "Squeezable",  #
-    #     6: "Falling like a feather or paper",
-    #     7: "Falling like a rock",
-    # }
-
-    # affordance_teacher_decoder = {
-    #     "Bendable": 0,
-    #     "Openable/Closabe": 2,
-    #     "Foldable": 4,
-    #     "Rollable": 6,
-    #     "Tearable": 8,
-    #     "Squeezable": 10,
-    #     "Falling like a feather or paper": 12,
-    #     "Falling like a rock": 13,
-    # }
-
-    # affordance_indices = [
-    #     0,
-    #     2,
-    #     4,
-    #     6,
-    #     8,
-    #     10,
-    #     12,
-    #     13,
-    # ]

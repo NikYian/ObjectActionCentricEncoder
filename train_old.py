@@ -13,7 +13,7 @@ from datasets.image_dataset import generate_image_dataset
 from datasets.utils import ssv2_id2class, extract_subset, dataset_split
 from models.AcE import get_AcE
 from models.trainers.AcE_trainer import AcE_Trainer
-from models.utils import get_criterion
+from utils.utils import get_criterion
 from models.teacher import load_teacher
 
 

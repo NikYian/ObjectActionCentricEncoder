@@ -77,22 +77,23 @@ class AcEnn(nn.Module):
         self.args = args
         self.thresholds = torch.tensor([0.5] * 10).to(args.device)
 
-        for param in self.clip.parameters():  # CLIP params are frozen
-            param.requires_grad = False
         self.head_type = head
         if image_features == "clip":
             self.image_encoder, self.preprocess = clip.load(
                 args.CLIP_model, device=args.device
             )
+
             self.image_features_dim = self.image_encoder.visual.output_dim
             self.encode_image = self.image_encoder.encode_image
         elif image_features == "mae":
-            chkpt_dir = "/gpu-data2/nyian/chackpoints/mae_vit_base_patch16.pth"
+            chkpt_dir = "/gpu-data2/nyian/checkpoints/mae_vit_base_patch16.pth"
             self.image_encoder = prepare_model(chkpt_dir, "mae_vit_base_patch16").to(
                 args.device
             )
             self.image_features_dim = 768  # MAE features
             self.encode_image = self.encode_mae
+        for param in self.image_encoder.parameters():  # CLIP params are frozen
+            param.requires_grad = False
 
         if head == "MLP":
             layers = []
@@ -112,8 +113,8 @@ class AcEnn(nn.Module):
         elif head == "Hopfield":
             self.head = HopfieldLayer(
                 input_size=self.image_features_dim,
-                quantity=1000,
-                num_heads=10,
+                quantity=189,
+                num_heads=1,
                 hidden_size=self.image_features_dim,
                 lookup_weights_as_separated=True,
                 stored_pattern_size=self.image_features_dim,
@@ -125,6 +126,10 @@ class AcEnn(nn.Module):
                 state_pattern_as_static=True,
                 dropout=args.AcE_dropout_rate,
             )
+        trainable_params = sum(
+            p.numel() for p in self.head.parameters() if p.requires_grad
+        )
+        print(f"Number of trainable parameters in AcE: {trainable_params}")
 
         if ACM_features == "image":
             self.classification_head = ClassificationHead(
@@ -139,6 +144,10 @@ class AcEnn(nn.Module):
                 input_size=args.AcE_feature_size + self.image_features_dim,
                 nn_type=args.ACM_type,
             )
+        trainable_params = sum(
+            p.numel() for p in self.classification_head.parameters() if p.requires_grad
+        )
+        print(f"Number of trainable parameters in ACM head: {trainable_params}")
 
         for param in self.parameters():
             param.data = param.data.to(torch.float32)
