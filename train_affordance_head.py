@@ -11,8 +11,8 @@ from args import Args
 from datasets.image_dataset import generate_image_dataset
 from datasets.utils import ssv2_id2class, extract_subset, dataset_split
 from models.AcE import get_AcE
-from models.teacher_trainer import TeacherTrainer
-from models.utils import get_criterion
+from models.trainers.teacher_trainer import TeacherTrainer
+from utils.utils import get_criterion
 from models.teacher import load_teacher
 from datasets.video_dataset import build_video_dataset
 

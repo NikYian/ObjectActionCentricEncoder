@@ -67,6 +67,8 @@ for dirs in ssv2_ann_dirs:
                 affordance = args.action2aff_labels[label][2]
 
                 video_ann = []
+                bbs = []
+                good_frames = []  # frames that have a bb of the interacting object
                 if args.action2aff_labels[label][1] == "object 0":
                     for frame in box_annotations[video_id]:
                         for item in frame["labels"]:
@@ -77,8 +79,11 @@ for dirs in ssv2_ann_dirs:
                                 upper = bbox["y1"]
                                 right = bbox["x2"]
                                 lower = bbox["y2"]
+                                bb = (left, upper, right, lower)
                                 if check_bb(left, upper, right, lower):
                                     video_ann.append(frame)
+                                    bbs.append(bb)
+                                    good_frames.append(frame["name"])
 
                     # object = annotation["placeholders"][0]
                 elif args.action2aff_labels[label][1] == "object 1":
@@ -87,6 +92,17 @@ for dirs in ssv2_ann_dirs:
                             if item["gt_annotation"] == "object 1":
                                 object = item["category"]
                                 video_ann.append(frame)
+                                bbox = item["box2d"]
+                                left = bbox["x1"]
+                                upper = bbox["y1"]
+                                right = bbox["x2"]
+                                lower = bbox["y2"]
+                                bb = (left, upper, right, lower)
+                                if check_bb(left, upper, right, lower):
+                                    video_ann.append(frame)
+                                    bbs.append(bb)
+                                    good_frames.append(frame["name"])
+
                     # object = annotation["placeholders"][0]
 
                 if affordance in affordance_info and video_ann:
@@ -126,6 +142,8 @@ for dirs in ssv2_ann_dirs:
                         "obj": args.action2aff_labels[label][1],
                         "object": object,
                         "affordance": int(np.where(affordances == affordance)[0][0]),
+                        "bbs": bbs,
+                        "good_frames": good_frames,
                     }
 
                 # count how many samples in each affordance category
@@ -217,10 +235,10 @@ for i in range(3):
             for index, frame in enumerate(sa_ann[video_id]["ann"]):
                 fname = frame["name"].split(".")[0]
                 if i == 1:
-                    frame_list.append(fname + "_i.npy")
+                    frame_list.append(fname + ".npy")
                     # frame_list.append(fname + "_t.npy")
                 else:
-                    frame_list.append(fname + "_i.npy")
+                    frame_list.append(fname + ".npy")
                 if (
                     index == 10
                 ):  # keep only frames from beggining of video to reduce object interference
@@ -260,7 +278,7 @@ for object in objects:
 # create a list with all the frames of the videos that contain detected object. ex. "151201/0001.jpg"
 video_id_lists = [test_video_ids, train_video_ids, val_video_ids]
 frame_id_lists = [test_ids, train_ids, val_ids]
-train_no_text = []
+# train_no_text = []
 
 train_videos = []
 test_videos = []
@@ -280,15 +298,18 @@ for i in range(3):
                 key=lambda x: int(x.split("/")[-1].split(".")[0]),
             )
             frame_num = len(img_list)
-            video_list.append({"id": video_id, "length": frame_num})
+            if frame_num == 0:
+                print(f"no frames in {fname}")
+            else:
+                video_list.append({"id": video_id, "length": frame_num})
             for index, frame in enumerate(sa_ann[video_id]["ann"]):
                 fname = frame["name"].split(".")[0]
                 if i == 1:
-                    frame_list.append(fname + "_i.npy")
-                    frame_list.append(fname + "_t.npy")
-                    train_no_text.append(fname + "_i.npy")
+                    # frame_list.append(fname + "_i.npy")
+                    # frame_list.append(fname + "_t.npy")
+                    frame_list.append(fname + ".npy")
                 else:
-                    frame_list.append(fname + "_i.npy")
+                    frame_list.append(fname + ".npy")
                 if (
                     index == 10
                 ):  # keep only frames from beggining of video to reduce object interference
@@ -301,8 +322,8 @@ with open("ssv2/somethings_affordances/val_comp.json", "w") as json_file:
     json.dump(val_ids, json_file)
 with open("ssv2/somethings_affordances/test_comp.json", "w") as json_file:
     json.dump(test_ids, json_file)
-with open("ssv2/somethings_affordances/train_comp_no_text.json", "w") as json_file:
-    json.dump(train_no_text, json_file)
+# with open("ssv2/somethings_affordances/train_comp_no_text.json", "w") as json_file:
+#     json.dump(train_no_text, json_file)
 
 with open("ssv2/somethings_affordances/train_videos.json", "w") as json_file:
     json.dump(train_videos, json_file)
@@ -313,7 +334,10 @@ with open("ssv2/somethings_affordances/test_videos.json", "w") as json_file:
 
 
 for video_id in sa_ann.keys():
-    sa_labels[video_id] = {}
+    sa_labels[video_id] = {
+        "bbs": sa_ann[video_id]["bbs"],
+        "good_frames": sa_ann[video_id]["good_frames"],
+    }
     for frame in sa_ann[video_id]["ann"]:
 
         object = sa_labels[video_id]["object"] = sa_ann[video_id]["object"]
@@ -344,7 +368,7 @@ def get_random_sample(object):
     else:
         breakpoint()
     fname = random_frame["name"].split(".")[0]
-    return fname + "_i.npy"
+    return fname + ".npy"
 
 
 choose_from_N = []

@@ -19,7 +19,7 @@ from sklearn.metrics import (
     recall_score,
     f1_score,
 )
-from models.utils import get_scheduler
+from utils.utils import get_scheduler
 
 
 class AcE_Trainer:
@@ -96,7 +96,7 @@ class AcE_Trainer:
                     )
 
                 pbar.set_description(
-                    desc=f"lr = {lr:.4f} Epoch {epoch+1}/{num_epochs} | Batch {i}/{len(self.train_loader)} | Train Loss: {epoch_loss:.4f} | Val Acc: {val_loss:.4f} | Best Val Acc: {best_val_loss:.4f}"
+                    desc=f"lr = {lr:.6f} | Batch {i}/{len(self.train_loader)} | Train Loss: {epoch_loss:.4f} | Val Acc: {val_loss:.4f} | Best Val Acc: {best_val_loss:.4f}"
                 )
 
             self.writer.add_scalar("epoch_training_loss", epoch_loss, epoch)
@@ -106,16 +106,22 @@ class AcE_Trainer:
 
             if val_loss < best_val_loss:
                 best_val_loss = val_loss
+                path = os.path.join(self.log_dir, self.name + ".pth")
+                torch.save(
+                    self.model.head.state_dict(),
+                    path,
+                )
+                # print(f"Model saved at {path}")
 
             # pth_files = glob.glob(os.path.join(self.log_dir, "*.pth"))
             # for pth_file in pth_files:
             #     os.remove(pth_file)
-            path = os.path.join(self.log_dir, self.name + ".pth")
-            torch.save(
-                self.model.head.state_dict(),
-                path,
-            )
-            print(f"Model saved at {path}")
+        # path = os.path.join(self.log_dir, self.name + ".pth")
+        # torch.save(
+        #     self.model.head.state_dict(),
+        #     path,
+        # )
+        # print(f"Model saved at {path}")
 
     def evaluate(
         self,

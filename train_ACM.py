@@ -10,7 +10,7 @@ from args import Args
 from datasets.image_dataset import generate_image_dataset
 from models.AcE import AcEnn
 from models.trainers.ACM_trainer import ACM_trainer
-from models.utils import get_criterion
+from utils.utils import get_criterion
 
 
 if __name__ == "__main__":
