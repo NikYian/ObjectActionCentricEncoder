@@ -69,7 +69,6 @@ def train_epoch(
 
         reconstruction = SOLV(dropped_features, masks, token_indices)
 
-        # associative memory train
         AcE["optimizer"].zero_grad()
         predictions = AcE["model"](reconstruction["target_frame_slots"].detach())
         loss = F.mse_loss(predictions, reconstruction["slots_temp"].detach()).mean()

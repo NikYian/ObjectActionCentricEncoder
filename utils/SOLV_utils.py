@@ -27,6 +27,14 @@ from datasets import ssv2_SOLV
 # === Training Related ===
 
 
+def generate_boolean_masks(mask):
+    unique_values = np.unique(mask)
+    boolean_masks = []
+    for value in unique_values:
+        boolean_masks.append(mask == value)
+    return np.stack(boolean_masks, -1)
+
+
 class SubsetRandomSampler(torch.utils.data.Sampler):
     """Samples elements randomly from a given list of indices, without replacement."""
 

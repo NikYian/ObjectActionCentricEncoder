@@ -12,48 +12,57 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import sys
-
 from tqdm import tqdm
+from PIL import Image
+import numpy as np
+from sklearn.metrics import (
+    accuracy_score,
+    precision_score,
+    recall_score,
+    f1_score,
+)
 from args import Args
+
 
 sys.path.append(r"./externals")
 from SOLV.models.model import SOLV_nn, Visual_Encoder, MLP
 from SOLV.read_args import get_args, print_args
 import utils.SOLV_utils as utils
+import utils.utils as AcE_utils
 
 from models.AcE import ClassificationHead
+from models.trainers.ACM_trainer import ACM_trainer
+from segmentation_mask_overlay import overlay_masks
 
 
 def train_epoch(
     SOLV_args,
-    AcE_args,
     vis_encoder,
     SOLV_model,
-    optimizer,
-    scheduler,
     train_dataloader,
     total_iter,
-    evaluator,
     writer,
     AcE_model,
     ACM,
 ):
+    total_loss = 0.0
     vis_encoder.eval()
     SOLV_model.eval()
     AcE_model.eval()
-    val_loader = tqdm(train_dataloader)
+    loader = tqdm(train_dataloader)
 
     bs = SOLV_args.batch_size
     H, W = SOLV_args.resize_to
 
-    for i, (
+    for iter, (
         frames,
         input_masks,
         video_id,
         frame_idx,
         multi_label_aff,
         bb_masks,
-    ) in enumerate(val_loader):
+        target_frame_paths,
+    ) in enumerate(loader):
         H_t, W_t = frames.shape[-2:]
 
         frames = frames.cuda(non_blocking=True)  # (1, #frames + 2N, 3, H, W)
@@ -87,139 +96,179 @@ def train_epoch(
             masks, size=(H_t, W_t), mode="bilinear"
         )  # (#frames, S, H_t, W_t)
         predictions = torch.argmax(predictions, dim=1)  # (#frames, H_t, W_t)
-        breakpoint()
-    #     H_t, W_t = gt_masks.shape[-2:]
-    #     frame_num = gt_masks.shape[1]
 
-    #     H, W = SOLV_args.resize_to
-    #     turn_number = model_input.shape[1] // bs
-    #     if model_input.shape[1] % bs != 0:
-    #         turn_number += 1
+        # find the slots of the interacting objects using the bounding box annotations
+        slots_of_interacting_object = []
+        for i in range(predictions.shape[0]):
+            prediction = predictions[i] + 1
+            prediction[bb_masks[i] == False] = 0
+            prediction = torch.flatten(prediction)
+            counts = torch.bincount(prediction)
+            slot_of_interacting_object = torch.argmax(counts[1:]).item()
+            slots_of_interacting_object.append(slot_of_interacting_object)
 
-    #     # === DINO feature extraction ===
-    #     all_dino_features = []
-    #     all_token_indices = []
-    #     for j in range(turn_number):
-    #         s = j * bs
-    #         e = (j + 1) * bs
-    #         with torch.cuda.amp.autocast(True):
-    #             features, token_indices = vis_encoder(
-    #                 model_input[:, s:e], get_gt=True
-    #             )  # (bs, token_num, 768), (bs, token_num)
-    #             assert (
-    #                 features.isnan().any() == False
-    #             ), f"{torch.sum(features.isnan())} items are NaN"
+        labels = []
+        inputs = []
+        for i, slot_num in enumerate(slot_nums):
+            for j in range(slot_num):
+                if j == slots_of_interacting_object[i]:
+                    labels.append(multi_label_aff[i])
+                else:
+                    labels.append(torch.zeros(10, dtype=int).cuda(non_blocking=True))
+                inputs.append(new_slots[i][j])
+        labels = torch.stack(labels).detach()
+        inputs = torch.stack(inputs).detach()
+        aff_predictions = ACM["model"](inputs)
 
-    #         all_dino_features.append(features.to(torch.float32))
-    #         all_token_indices.append(token_indices)
+        ACM["optimizer"].zero_grad()
+        predictions = ACM["model"](reconstruction["target_frame_slots"].detach())
+        loss = ACM["criterion"](aff_predictions, labels)
+        total_loss += loss.item()
+        loss.backward()
+        ACM["optimizer"].step()
+        ACM["scheduler"].step()
+        lr = ACM["optimizer"].state_dict()["param_groups"][0]["lr"]
+        mean_loss = total_loss / (iter + 1)
+        loader.set_description(f"lr: {lr:.6f} | loss: {mean_loss:.5f}")
 
-    #     all_dino_features = torch.cat(
-    #         all_dino_features, dim=0
-    #     )  # (#frames + 2N, token_num, 768)
-    #     all_token_indices = torch.cat(
-    #         all_token_indices, dim=0
-    #     )  # (#frames + 2N, token_num)
+        writer.add_scalar("batch/loss", loss.item(), total_iter)
 
-    #     all_model_inputs = []
-    #     all_model_tokens = []
-    #     all_masks_input = []
-    #     for i in range(frame_num):
-    #         indices = list(range(i, i + (2 * SOLV_args.N + 1)))
-    #         all_model_inputs.append(
-    #             all_dino_features[indices].unsqueeze(dim=0)
-    #         )  # (1, 2N + 1, token_num, 768)
-    #         all_model_tokens.append(
-    #             all_token_indices[indices].unsqueeze(dim=0)
-    #         )  # (1, 2N + 1, token_num)
-    #         all_masks_input.append(input_masks[:, indices])  # (1, 2N + 1)
+        total_iter += 1
 
-    #     all_model_inputs = torch.cat(
-    #         all_model_inputs, dim=0
-    #     )  # (#frames, 2N + 1, token_num, 768)
-    #     all_model_tokens = torch.cat(
-    #         all_model_tokens, dim=0
-    #     )  # (#frames, 2N + 1, token_num)
-    #     all_masks_input = torch.cat(all_masks_input, dim=0)  # (#frames, 2N + 1)
-    #     # === === ===
+    mean_loss = total_loss / (iter + 1)
+    return mean_loss, total_iter
 
-    #     turn_number = frame_num // bs
-    #     if frame_num % bs != 0:
-    #         turn_number += 1
 
-    #     out_masks = []
-    #     all_slots = []
-    #     all_slot_nums = []
-    #     for j in range(turn_number):
-    #         s = j * bs
-    #         e = (j + 1) * bs
+def val_epoch(
+    SOLV_args,
+    vis_encoder,
+    SOLV_model,
+    dataloader,
+    total_iter,
+    writer,
+    AcE_model,
+    ACM,
+    test=False,
+    ret="acc",
+):
+    total_loss = 0.0
+    vis_encoder.eval()
+    SOLV_model.eval()
+    AcE_model.eval()
+    ACM["model"].eval()
+    loader = tqdm(dataloader)
+    total_samples = 0
+    y_pred_probs = []
+    y_binary_list = []
+    y_true = []
 
-    #         # === Input features ===
-    #         features = all_model_inputs[s:e]  # (bs, 2N + 1, token_num, 768)
-    #         features = torch.flatten(features, 0, 1)  # (bs * (2N + 1), token_num, 768)
+    bs = SOLV_args.batch_size
+    H, W = SOLV_args.resize_to
 
-    #         # === Token indices ===
-    #         token_indices = all_model_tokens[s:e]  # (bs, 2N + 1, token_num)
-    #         token_indices = torch.flatten(
-    #             token_indices, 0, 1
-    #         )  # (bs * (2N + 1), token_num)
+    for iter, (
+        frames,
+        input_masks,
+        video_id,
+        frame_idx,
+        multi_label_aff,
+        bb_masks,
+        target_frame_paths,
+    ) in enumerate(loader):
+        H_t, W_t = frames.shape[-2:]
 
-    #         # === Attention masks ===
-    #         input_masks_j = all_masks_input[s:e]
+        frames = frames.cuda(non_blocking=True)  # (1, #frames + 2N, 3, H, W)
+        input_masks = input_masks.cuda(non_blocking=True)  # (1, #frames + 2N)
+        # bb = bb.cuda(non_blocking=True)
+        bb_masks = bb_masks.cuda(non_blocking=True)
+        multi_label_aff = multi_label_aff.cuda(non_blocking=True)
+        # multi_label_aff = torch.stack(multi_label_aff).transpose(0, 1)
+        multi_label_aff = torch.where(
+            multi_label_aff >= 1,
+            torch.tensor(1, device=AcE_args.device),
+            multi_label_aff,
+        ).cuda(non_blocking=True)
 
-    #         reconstruction = SOLV_model(features, input_masks_j, token_indices)
+        # gt_masks = gt_masks.cuda(non_blocking=True)  # (1, #frames, H_t, W_t)
 
-    #         masks = reconstruction["mask"]  # (bs, S, token)
-    #         slots = reconstruction["slots"]  # (bs, S, D_slot)
-    #         slot_nums = reconstruction["slot_nums"]  # (bs)
-    #         for l in range(slot_nums.shape[0]):
-    #             slot_num = slot_nums[l]
-    #             slots_l = slots[l, :slot_num]  # (S', D_slot)
-    #             all_slots.append(slots_l)
+        with torch.cuda.amp.autocast(True):
 
-    #         out_masks.append(masks)
-    #         all_slot_nums.append(slot_nums)
+            output_features, token_indices = vis_encoder(frames, get_gt=False)
 
-    #     all_slots = torch.cat(all_slots, dim=0)  # (#slots, D_slot)
-    #     all_slot_nums = torch.cat(all_slot_nums, dim=0)  # (#frames)
-    #     masks = torch.cat(out_masks, dim=0)  # (#frames, S, token)
+            assert (
+                output_features.isnan().any() == False
+            ), f"{torch.sum(output_features.isnan())} items are NaN"
 
-    #     S = masks.shape[1]
+        output_features = output_features.to(torch.float32)
 
-    #     masks = masks.view(
-    #         -1, S, H // SOLV_args.patch_size, W // SOLV_args.patch_size
-    #     )  # (#frames, S, H // 8, W // 8)
-    #     predictions = F.interpolate(
-    #         masks, size=(H_t, W_t), mode="bilinear"
-    #     )  # (#frames, S, H_t, W_t)
-    #     predictions = torch.argmax(predictions, dim=1)  # (#frames, H_t, W_t)
+        reconstruction = SOLV_model(output_features, input_masks, token_indices)
+        slots_AcE = AcE_model(reconstruction["target_frame_slots"].detach())
+        new_slots, new_patch_attn, slot_nums = SOLV_model.merge(
+            slots_AcE, reconstruction["attn"]
+        )
+        S = new_patch_attn.shape[1]
+        masks = new_patch_attn.view(
+            -1, S, H // SOLV_args.patch_size, W // SOLV_args.patch_size
+        )  # (#frames, S, H // 8, W // 8)
+        predictions = F.interpolate(
+            masks, size=(H_t, W_t), mode="bilinear"
+        )  # (#frames, S, H_t, W_t)
+        predictions = torch.argmax(predictions, dim=1)  # (#frames, H_t, W_t)
 
-    #     if SOLV_args.merge_slots:
-    #         predictions = SOLV.utils.bipartiate_match_video(
-    #             all_slots, all_slot_nums, predictions
-    #         )
+        # find the slots of the interacting objects using the bounding box annotations
+        slots_of_interacting_object = []
+        for i in range(predictions.shape[0]):
+            prediction = predictions[i] + 1
+            prediction[bb_masks[i] == False] = 0
+            prediction = torch.flatten(prediction)
+            counts = torch.bincount(prediction)
+            slot_of_interacting_object = torch.argmax(counts[1:]).item()
+            slots_of_interacting_object.append(slot_of_interacting_object)
 
-    #     # === Instance Segmentation Evaluation ===
-    #     miou = evaluator.update(predictions, gt_masks[0])
-    #     loss_desc = f"mIoU: {miou * 100:.3f}"
+        labels = []
+        inputs = []
+        for i, slot_num in enumerate(slot_nums):
+            for j in range(slot_num):
+                if j == slots_of_interacting_object[i]:
+                    labels.append(multi_label_aff[i])
+                    inputs.append(new_slots[i][j])
+        labels = torch.stack(labels).detach()
+        inputs = torch.stack(inputs).detach()
+        aff_predictions = ACM["model"](inputs).detach()
+        binary_predictions = (aff_predictions > ACM["thresholds"]).int()
 
-    #     # === Logger ===
-    #     val_loader.set_description(loss_desc)
-    #     # === === ===
+        y_pred_probs.append(aff_predictions.cpu().numpy())
+        y_binary_list.append(binary_predictions.cpu().numpy())
+        y_true.append(labels.cpu().numpy())
 
-    # # === Evaluation Results ====
-    # miou, fg_ari = evaluator.get_results()
+    y_pred_probs = np.concatenate(y_pred_probs, axis=0)
+    y_binary_list = np.concatenate(y_binary_list, axis=0)
+    y_true = np.concatenate(y_true, axis=0)
+    accuracy = np.mean(y_binary_list == y_true)
 
-    # # === Logger ===
-    # print("\n=== Results ===")
-    # print(f"\tmIoU: {miou * 100:.3f}")
-    # print(f"\tFG-ARI: {fg_ari * 100:.3f}\n")
+    if test:
+        ACM["trainer"].evaluate_multilabel_model(y_true, y_binary_list)
 
-    # return miou, fg_ari
+    if ret == "f1":
+        return f1_score(y_true, y_binary_list, average="micro")
+    else:
+        return accuracy, y_true, y_pred_probs, y_binary_list
+
+    # test masks
+    # for i, path in enumerate(target_frame_paths):
+    #     image = Image.open(path).convert("L")
+    #     image = np.array(image)
+    #     H, W = image.shape
+    #     predictions_ = F.interpolate(masks, size=(H, W), mode="bilinear")
+    #     predictions_ = torch.argmax(predictions_, dim=1)
+    #     prediction_ = predictions_[i].cpu().numpy()
+    #     masks_ = utils.generate_boolean_masks(prediction_)
+    #     fig = overlay_masks(image, masks_, return_type="mpl")
+    #     fig.savefig("test.png", bbox_inches="tight", dpi=300)
 
 
 def main_worker(SOLV_args, AcE_args):
 
-    print_args(SOLV_args)
+    # print_args(SOLV_args)
 
     # === Dataloaders ====
     train_dataloader, val_dataloader, test_loader = utils.get_dataloaders(SOLV_args)
@@ -259,24 +308,40 @@ def main_worker(SOLV_args, AcE_args):
     for param in AcE_model.parameters():  # SOLV params are frozen
         param.requires_grad = False
 
-    ACM_model = ClassificationHead(SOLV_args.slot_dim)
+    ACM_model = ClassificationHead(SOLV_args.slot_dim, num_classes=10).to(device)
+    checkpoint = torch.load("runs/SOLV_ACM.pth")
+    msg = ACM_model.load_state_dict(checkpoint)
+    print(msg)
 
     # === Training Items ===
     optimizer = torch.optim.Adam(
         utils.get_params_groups(ACM_model), lr=SOLV_args.learning_rate
     )
     scheduler = utils.get_scheduler(SOLV_args, optimizer, train_dataloader)
-
+    trainer = ACM_trainer(
+        AcE_args,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        AcE_args.device,
+        AcE_args.log_dir,
+    )
     ACM = {
         "model": ACM_model,
         "optimizer": optimizer,
         "scheduler": scheduler,
+        "criterion": AcE_utils.get_criterion(AcE_args),
+        "trainer": trainer,
+        "thresholds": torch.tensor([0.5] * 10).to(AcE_args.device),
     }
 
     print("Starting ACM_SOLV training!")
 
     total_iter = 0
-    best_val_acc = val_loss = 0
+    best_val_acc = val_acc = 0
 
     for epoch in range(0, AcE_args.AcE_epochs):
         # train_dataloader.sampler.set_epoch(epoch)
@@ -285,30 +350,32 @@ def main_worker(SOLV_args, AcE_args):
 
         mean_loss, total_iter = train_epoch(
             SOLV_args,
-            AcE_args,
             vis_encoder,
             SOLV_model,
-            optimizer,
-            scheduler,
             train_dataloader,
             total_iter,
-            evaluator,
             writer,
             AcE_model,
             ACM,
         )
-
-        val_loss = val_epoch(
-            SOLV_args, vis_encoder, SOLV, val_dataloader, evaluator, writer, epoch
+        (val_acc, y_true, y_pred_probs, y_binary_list) = val_epoch(
+            SOLV_args,
+            vis_encoder,
+            SOLV_model,
+            val_dataloader,
+            total_iter,
+            writer,
+            AcE_model,
+            ACM,
         )
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
+        if val_acc > best_val_acc:
+            best_val_acc = val_acc
 
-        print(f"val loss: {val_loss} | best val loss: {best_val_loss}")
+        print(f"val acc: {val_acc} | best val acc: {best_val_acc}")
 
-        path = os.path.join(AcE_args.log_dir, "SOLV_AcE.pth")
+        path = os.path.join(AcE_args.log_dir, "SOLV_ACM.pth")
         torch.save(
-            AcE_model.state_dict(),
+            ACM["model"].state_dict(),
             path,
         )
 
@@ -316,6 +383,19 @@ def main_worker(SOLV_args, AcE_args):
         writer.add_scalar("epoch/train-lsoss", mean_loss, epoch)
         writer.flush()
         writer.close()
+
+    ACM["tresholds"] = ACM["trainer"].fine_tune_thresholds(y_true, y_pred_probs)
+    (accuracy, y_true, y_pred_probs, y_binary_list) = val_epoch(
+        SOLV_args,
+        vis_encoder,
+        SOLV_model,
+        test_loader,
+        total_iter,
+        writer,
+        AcE_model,
+        ACM,
+        test=True,
+    )
 
 
 if __name__ == "__main__":

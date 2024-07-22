@@ -94,7 +94,7 @@ class SSV2(data.Dataset):
             key=lambda x: int(x.split("/")[-1].split(".")[0]),
         )
         frame_num = len(img_list)
-
+        target_frame_path = img_list[2]
         input_frames = torch.zeros(
             (2 * self.N + 1, 3, self.resize_to[0], self.resize_to[1]), dtype=torch.float
         )
@@ -125,7 +125,7 @@ class SSV2(data.Dataset):
         bb_mask = torch.zeros((new_height, new_width), dtype=torch.bool)
         bb_mask[scaled_upper:scaled_lower, scaled_left:scaled_right] = True
 
-        return input_frames, mask, video_id, frame_idx, bb_mask
+        return input_frames, mask, video_id, frame_idx, bb_mask, target_frame_path
 
     def __len__(self):
         return len(self.mapping)
@@ -140,8 +140,8 @@ class SSV2(data.Dataset):
                             in shape (2*N + 1)
         """
 
-        (input_frames, frame_masks, video_id, frame_idx, bb_mask) = self.get_rgb(
-            idx
+        (input_frames, frame_masks, video_id, frame_idx, bb_mask, target_frame_path) = (
+            self.get_rgb(idx)
         )  # (2N + 1, 3, H, W), (2N + 1)
 
         affordance_label = self.sa_labels[video_id]["affordance"]
@@ -157,4 +157,5 @@ class SSV2(data.Dataset):
             frame_idx,
             multi_label_aff,
             bb_mask,
+            target_frame_path,
         )

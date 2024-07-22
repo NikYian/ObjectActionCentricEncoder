@@ -35,7 +35,7 @@ class ACM_trainer:
         log_dir="logs",
     ):
         self.name = name
-        self.model = model.to(device)
+        self.model = model.to(device) if model else None
         self.train_loader = train_loader
         self.val_loader = val_loader
         self.criterion = criterion
@@ -43,7 +43,11 @@ class ACM_trainer:
         self.device = device
         self.log_dir = log_dir
         self.args = args
-        self.scheduler = get_scheduler(self.args, self.optimizer, self.train_loader)
+        self.scheduler = (
+            get_scheduler(self.args, self.optimizer, self.train_loader)
+            if train_loader
+            else None
+        )
 
         if not os.path.exists(self.log_dir):
             os.makedirs(self.log_dir)
@@ -216,7 +220,7 @@ class ACM_trainer:
         affordances = self.args.affordances
         for i, affordance in enumerate(affordances):
             precision = precision_score(
-                y_true[:, i], y_pred[:, i], zero_division=np.nan
+                y_true[:, i], y_binary_list[:, i], zero_division=np.nan
             )
             recall = recall_score(y_true[:, i], y_pred[:, i], zero_division=np.nan)
             f1 = f1_score(y_true[:, i], y_pred[:, i], zero_division=np.nan)
