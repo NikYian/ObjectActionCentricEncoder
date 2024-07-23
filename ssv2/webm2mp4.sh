@@ -20,10 +20,11 @@ find "$input_dir" -type f -name "*.webm" | while read -r webm_file; do
         ((skipping_count++))
     else
         # Convert the WebM file to MP4 format using ffmpeg with suppressed output
-        if ffmpeg -i "$webm_file" "$mp4_file" >/dev/null 2>&1; then
-            ((converted_count++))
+        if ffmpeg -i "$webm_file" "$mp4_file" >/dev/null 2>ffmpeg_error.log; then
+         ((converted_count++))
         else 
-            ((error_count++))
+        ((error_count++))
+
         fi 
     fi
     progress=$((converted_count * 100 / total_files))

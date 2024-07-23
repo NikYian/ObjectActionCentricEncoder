@@ -202,7 +202,6 @@ def generate_SOLV_features_for_AcE(SOLV_args):
             bb_masks,
             target_frame_paths,
         ) in tqdm(loader):
-            H_t, W_t = frames.shape[-2:]
 
             frames = frames.cuda()  # (1, #frames + 2N, 3, H, W)
             input_masks = input_masks.cuda()  # (1, #frames + 2N)
@@ -222,6 +221,8 @@ def generate_SOLV_features_for_AcE(SOLV_args):
                     splits[j],
                     video_id[i] + "_" + str(frame_idx[i].item()) + ".npy",
                 )
+                if os.path.exists(path):
+                    continue
                 np.save(path, inputs[i])
                 path = os.path.join(
                     targets_dir,

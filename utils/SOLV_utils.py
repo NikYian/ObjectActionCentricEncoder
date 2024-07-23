@@ -139,9 +139,9 @@ def get_dataloaders(args):
     else:
         print("Not available dataset")
 
-    train_sampler = SubsetRandomSampler(train_dataset, subset_ratio=0.1)
-    val_sampler = SubsetRandomSampler(val_dataset, subset_ratio=0.01)
-    test_sampler = SubsetRandomSampler(test_dataset, subset_ratio=0.01)
+    train_sampler = SubsetRandomSampler(train_dataset, subset_ratio=1)
+    val_sampler = SubsetRandomSampler(val_dataset, subset_ratio=1)
+    test_sampler = SubsetRandomSampler(test_dataset, subset_ratio=1)
 
     # train_sampler = torch.utils.data.DistributedSampler(
     #     train_dataset, num_replicas=args.gpus, rank=args.gpu, shuffle=True
