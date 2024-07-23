@@ -25,7 +25,8 @@ import models_mae
 sys.path.append(r"./externals")
 from SOLV.models.model import SOLV_nn, Visual_Encoder, MLP
 from SOLV.read_args import get_args, print_args
-import SOLV.utils
+
+import utils.SOLV_utils as utils
 
 
 def frame2objcrop(box_annotations):
@@ -163,11 +164,15 @@ def generate_targets_from_teacer(args, video_ids):
         np.save(file_path + ".npy", features_numpy)
 
 
-def generate_SOLV_features(args, box_annotations):
-    SOLV_args = get_args()
-    train_dataloader, val_dataloader, test_loader = SOLV.utils.get_dataloaders(
-        SOLV_args
-    )
+@torch.no_grad()
+def generate_SOLV_features_for_AcE(SOLV_args):
+    train_dataloader, val_dataloader, test_loader = utils.get_dataloaders(SOLV_args)
+    loaders = [train_dataloader, val_dataloader, test_loader]
+    # train_ids = []
+    # val_ids = []
+    # test_ids = []
+    # ids = [train_ids, val_ids, test_ids]
+    splits = ["train", "val", "test"]
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -175,53 +180,59 @@ def generate_SOLV_features(args, box_annotations):
     SOLV_model = SOLV_nn(SOLV_args).to(device)
 
     to_restore = {"epoch": 0}
-    SOLV.utils.restart_from_checkpoint(
-        SOLV_args,
+    utils.restart_from_checkpoint(
+        SOLV_args.checkpoint_path,
         run_variables=to_restore,
         model=SOLV_model,
+        remove_module_from_key=True,
     )
+    vis_encoder.eval()
+    SOLV_model.eval()
 
-    inputs_output_dir = "/gpu-data2/nyian/ssv2/SOLV/inputs"
-    targets_output_dir = "/gpu-data2/nyian/ssv2/SOLV/targets"
-    for video_id, ann in tqdm(box_annotations.items()):
-        directory_path = os.path.join(output_dir, video_id)
-        os.makedirs(directory_path, exist_ok=True)
-        annotations = ann["ann"]
-        affordance = ann["affordance"]
-        aff_sentense = args.affordance_sentences[affordance]
-        for frame in annotations:
-            fname = frame["name"].split(".")[0]
-            feature_path = os.path.join(output_dir, fname + ".npy")
+    inputs_dir = "/gpu-data2/nyian/ssv2/SOLV/inputs"
+    targets_dir = "/gpu-data2/nyian/ssv2/SOLV/targets"
 
-            # Check if both files already exist
-            if os.path.exists(feature_path):
-                continue  # Skip this frame if file already exist
+    for j, loader in enumerate(loaders):
+        for (
+            frames,
+            input_masks,
+            video_id,
+            frame_idx,
+            multi_label_aff,
+            bb_masks,
+            target_frame_paths,
+        ) in tqdm(loader):
+            H_t, W_t = frames.shape[-2:]
 
-            crop_path = os.path.join(crop_dir, frame["name"])
-            try:
-                image = Image.open(crop_path)
-            except IOError:
-                print(f"Error opening image: {crop_path}")
-                continue
+            frames = frames.cuda()  # (1, #frames + 2N, 3, H, W)
+            input_masks = input_masks.cuda()  # (1, #frames + 2N)
 
-            transform = transforms.Compose(
-                [
-                    transforms.Resize((224, 224)),  # Resize to 224x224
-                    transforms.ToTensor(),
-                    transforms.Normalize(
-                        mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225]
-                    ),  # Normalization with ImageNet mean and std
-                ]
-            )
-            image = dataset.loader(crop_path)
-            image_tensor = transform(image).unsqueeze(0).to(args.device)
-            image_features = model_mae.forward_encoder(image_tensor, 0)
-            image_features = model_mae.norm(image_features[0].mean(1))
-            img_features_numpy = image_features.cpu().detach().numpy().reshape(768)
-            np.save(feature_path, img_features_numpy)
+            output_features, token_indices = vis_encoder(frames, get_gt=False)
+
+            output_features = output_features.to(torch.float32).cuda()
+
+            reconstruction = SOLV_model(output_features, input_masks, token_indices)
+
+            output_features = output_features.to(torch.float32)
+            inputs = reconstruction["target_frame_slots"].cpu().detach().numpy()
+            targets = reconstruction["slots_temp"].cpu().detach().numpy()
+            for i in range(inputs.shape[0]):
+                path = os.path.join(
+                    inputs_dir,
+                    splits[j],
+                    video_id[i] + "_" + str(frame_idx[i].item()) + ".npy",
+                )
+                np.save(path, inputs[i])
+                path = os.path.join(
+                    targets_dir,
+                    splits[j],
+                    video_id[i] + "_" + str(frame_idx[i].item()) + ".npy",
+                )
+                np.save(path, targets[i])
 
 
 if __name__ == "__main__":
+    SOLV_args = get_args()
     args = Args()
 
     print("Importing annotations...")
@@ -257,5 +268,12 @@ if __name__ == "__main__":
     if response.lower() in ["yes", "y"]:
         generate_mae_features(args, box_annotations)
         print("MAE features extracted succesfully")
+
+    response = input(
+        "Do you want to proceed with extracting the SOLV representations? (yes/no): "
+    )
+    if response.lower() in ["yes", "y"]:
+        generate_SOLV_features_for_AcE(SOLV_args)
+        print("SOLV features extracted succesfully")
 
     print("Preprocessing completed")

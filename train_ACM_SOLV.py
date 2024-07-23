@@ -110,23 +110,26 @@ def train_epoch(
         labels = []
         inputs = []
         for i, slot_num in enumerate(slot_nums):
+            non_object_slot_num = 1
             for j in range(slot_num):
                 if j == slots_of_interacting_object[i]:
                     labels.append(multi_label_aff[i])
-                else:
+                    inputs.append(new_slots[i][j])
+                    break
+                elif non_object_slot_num > 0:
+                    non_object_slot_num -= 1
                     labels.append(torch.zeros(10, dtype=int).cuda(non_blocking=True))
-                inputs.append(new_slots[i][j])
+                    inputs.append(new_slots[i][j])
         labels = torch.stack(labels).detach()
         inputs = torch.stack(inputs).detach()
         aff_predictions = ACM["model"](inputs)
 
         ACM["optimizer"].zero_grad()
-        predictions = ACM["model"](reconstruction["target_frame_slots"].detach())
-        loss = ACM["criterion"](aff_predictions, labels)
+        loss = F.mse_loss(aff_predictions, labels.float()).mean()
         total_loss += loss.item()
         loss.backward()
         ACM["optimizer"].step()
-        ACM["scheduler"].step()
+        # ACM["scheduler"].step()
         lr = ACM["optimizer"].state_dict()["param_groups"][0]["lr"]
         mean_loss = total_loss / (iter + 1)
         loader.set_description(f"lr: {lr:.6f} | loss: {mean_loss:.5f}")
@@ -247,6 +250,10 @@ def val_epoch(
 
     if test:
         ACM["trainer"].evaluate_multilabel_model(y_true, y_binary_list)
+    else:
+        ACM["tresholds"] = ACM["trainer"].fine_tune_thresholds(y_true, y_pred_probs)
+        print(ACM["tresholds"])
+        print(y_pred_probs[:10])
 
     if ret == "f1":
         return f1_score(y_true, y_binary_list, average="micro")
@@ -309,15 +316,13 @@ def main_worker(SOLV_args, AcE_args):
         param.requires_grad = False
 
     ACM_model = ClassificationHead(SOLV_args.slot_dim, num_classes=10).to(device)
-    checkpoint = torch.load("runs/SOLV_ACM.pth")
-    msg = ACM_model.load_state_dict(checkpoint)
-    print(msg)
+    # checkpoint = torch.load("runs/SOLV_ACM.pth")
+    # msg = ACM_model.load_state_dict(checkpoint)
+    # print(msg)
 
     # === Training Items ===
-    optimizer = torch.optim.Adam(
-        utils.get_params_groups(ACM_model), lr=SOLV_args.learning_rate
-    )
-    scheduler = utils.get_scheduler(SOLV_args, optimizer, train_dataloader)
+    optimizer = torch.optim.Adam(utils.get_params_groups(ACM_model), lr=AcE_args.AcE_lr)
+    # scheduler = utils.get_scheduler(SOLV_args, optimizer, train_dataloader)
     trainer = ACM_trainer(
         AcE_args,
         None,
@@ -332,7 +337,7 @@ def main_worker(SOLV_args, AcE_args):
     ACM = {
         "model": ACM_model,
         "optimizer": optimizer,
-        "scheduler": scheduler,
+        # "scheduler": scheduler,
         "criterion": AcE_utils.get_criterion(AcE_args),
         "trainer": trainer,
         "thresholds": torch.tensor([0.5] * 10).to(AcE_args.device),
@@ -358,20 +363,21 @@ def main_worker(SOLV_args, AcE_args):
             AcE_model,
             ACM,
         )
-        (val_acc, y_true, y_pred_probs, y_binary_list) = val_epoch(
-            SOLV_args,
-            vis_encoder,
-            SOLV_model,
-            val_dataloader,
-            total_iter,
-            writer,
-            AcE_model,
-            ACM,
-        )
-        if val_acc > best_val_acc:
-            best_val_acc = val_acc
+        if epoch % 5 == 0:
+            (val_acc, y_true, y_pred_probs, y_binary_list) = val_epoch(
+                SOLV_args,
+                vis_encoder,
+                SOLV_model,
+                val_dataloader,
+                total_iter,
+                writer,
+                AcE_model,
+                ACM,
+            )
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
 
-        print(f"val acc: {val_acc} | best val acc: {best_val_acc}")
+            print(f"val acc: {val_acc} | best val acc: {best_val_acc}")
 
         path = os.path.join(AcE_args.log_dir, "SOLV_ACM.pth")
         torch.save(
@@ -384,7 +390,6 @@ def main_worker(SOLV_args, AcE_args):
         writer.flush()
         writer.close()
 
-    ACM["tresholds"] = ACM["trainer"].fine_tune_thresholds(y_true, y_pred_probs)
     (accuracy, y_true, y_pred_probs, y_binary_list) = val_epoch(
         SOLV_args,
         vis_encoder,

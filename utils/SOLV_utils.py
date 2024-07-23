@@ -51,7 +51,7 @@ class SubsetRandomSampler(torch.utils.data.Sampler):
 
 
 def restart_from_checkpoint(
-    checkpoint_path, run_variables, remove_module_from_key, **kwargs
+    checkpoint_path, run_variables, remove_module_from_key=True, **kwargs
 ):
 
     assert checkpoint_path is not None
@@ -139,7 +139,7 @@ def get_dataloaders(args):
     else:
         print("Not available dataset")
 
-    train_sampler = SubsetRandomSampler(train_dataset, subset_ratio=0.01)
+    train_sampler = SubsetRandomSampler(train_dataset, subset_ratio=0.1)
     val_sampler = SubsetRandomSampler(val_dataset, subset_ratio=0.01)
     test_sampler = SubsetRandomSampler(test_dataset, subset_ratio=0.01)
 

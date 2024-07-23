@@ -148,7 +148,7 @@ class Args(argparse.Namespace):
 
     # AcE arguments
     image_features = "mae"  # "mae" or "clip"
-    AcE_epochs = 10
+    AcE_epochs = 30
     head = "MLP"  # "MLP" or "Hopfield"
     AcE_checkpoint = "runs/AcE_MLP.pth"
     SOLV_AcE_checkpoint = "runs/SOLV_AcE.pth"
@@ -178,7 +178,7 @@ class Args(argparse.Namespace):
     #     400,
     #     300,
     # ]
-    AcE_criterion = "SmoothL1Loss"  # "MSE"
+    AcE_criterion = "MSE"  # "MSE" or "SmoothL1Loss"
     AcE_lr = 1e-4
     AcE_weight_decay = 10e-6
 
