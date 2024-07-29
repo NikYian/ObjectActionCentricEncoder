@@ -52,3 +52,5 @@ if __name__ == "__main__":
     # AcE.thresholds = trainer.fine_tune_thresholds(y_true, y_pred_probs)
     # print(f"Threshold finetunig completed:{AcE.thresholds}")
     trainer.evaluate(test_loader, test=True)
+
+    trainer.extract_examples(test_loader)

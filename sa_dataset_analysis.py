@@ -171,8 +171,6 @@ for object in objects:
             "affordance_distribution"
         ].tolist()
         main_objects[object]["affordances"] = list(main_objects[object]["affordances"])
-del main_objects["hand"]
-del main_objects["something"]
 
 main_objects_list = list(main_objects.keys())
 random.seed(3)
@@ -227,11 +225,28 @@ for object in objects:
 video_id_lists = [test_video_ids, train_video_ids, val_video_ids]
 frame_id_lists = [test_ids, train_ids, val_ids]
 
+train_videos = []
+test_videos = []
+val_videos = []
+
+video_lists = [test_videos, train_videos, val_videos]
+
 for i in range(3):
-    video_list = video_id_lists[i]
+    video_id_list = video_id_lists[i]
     frame_list = frame_id_lists[i]
-    for video_id in video_list:
+    video_list = video_lists[i]
+    for video_id in video_id_list:
         if video_id in sa_ann:
+            fname = "/gpu-data2/nyian/ssv2/jpg/" + video_id
+            img_list = sorted(
+                glob(os.path.join(fname, "*.jpg")),
+                key=lambda x: int(x.split("/")[-1].split(".")[0]),
+            )
+            frame_num = len(img_list)
+            if frame_num == 0:
+                print(f"no frames in {fname}")
+            else:
+                video_list.append({"id": video_id, "length": frame_num})
             for index, frame in enumerate(sa_ann[video_id]["ann"]):
                 fname = frame["name"].split(".")[0]
                 if i == 1:
@@ -250,6 +265,13 @@ with open("ssv2/somethings_affordances/val.json", "w") as json_file:
     json.dump(val_ids, json_file)
 with open("ssv2/somethings_affordances/test.json", "w") as json_file:
     json.dump(test_ids, json_file)
+
+with open("ssv2/somethings_affordances/train_videos_.json", "w") as json_file:
+    json.dump(train_videos, json_file)
+with open("ssv2/somethings_affordances/val_videos_.json", "w") as json_file:
+    json.dump(val_videos, json_file)
+with open("ssv2/somethings_affordances/test_videos_.json", "w") as json_file:
+    json.dump(test_videos, json_file)
 
 
 ## create compostional train,test split from video ids
@@ -347,7 +369,7 @@ for video_id in sa_ann.keys():
                 "affordance_labels"
             ]
         else:
-            sa_labels[video_id]["affordance_labels"] = [0] * 10
+            sa_labels[video_id]["affordance_labels"] = [0] * len(affordances)
             sa_labels[video_id]["affordance_labels"][sa_ann[video_id]["affordance"]] = 1
 
 with open("ssv2/somethings_affordances/sa_labels.json", "w") as json_file:

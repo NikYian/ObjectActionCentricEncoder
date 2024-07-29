@@ -5,7 +5,7 @@ from torch.utils.data import DataLoader
 from torchvision.transforms import transforms
 from sklearn.metrics import accuracy_score
 from torch.utils.tensorboard import SummaryWriter
-from utils.utils import get_scheduler
+from utils.utils import get_scheduler, add_text_to_image, create_image_grid
 import os
 import torch.nn.functional as F
 import json
@@ -40,6 +40,7 @@ class ACM_trainer:
         self.val_loader = val_loader
         self.criterion = criterion
         self.optimizer = optimizer
+        self.num_classes = len(args.affordances)
         self.device = device
         self.log_dir = log_dir
         self.args = args
@@ -58,7 +59,9 @@ class ACM_trainer:
         for param in self.model.head.parameters():
             param.requires_grad = False
         epoch_loss = 0
+        print("Baseline evaluation:")
         best_val_acc = val_acc = self.evaluate(self.val_loader)
+        print("Training starts:")
         pbar = tqdm(
             range(num_epochs),
         )
@@ -69,21 +72,22 @@ class ACM_trainer:
 
             for i, (
                 clip_features,
-                _,
-                _,
+                target_features,
                 multi_label_targets,
-                _,
-                _,
                 _,
             ) in enumerate(self.train_loader):
                 self.optimizer.zero_grad()
 
                 clip_features = clip_features.to(self.device)
+                target_features = target_features.to(self.device)
                 multi_label_targets = 1 * (
                     torch.stack(multi_label_targets).transpose(0, 1).to(self.device)
                 )
+                if self.args.ACM_features == "gt":
+                    predictions = self.model.predict_aff_image_features(target_features)
+                else:
+                    predictions = self.model.predict_aff_image_features(clip_features)
 
-                predictions = self.model.predict_aff_image_features(clip_features)
                 loss = self.criterion(predictions.float(), multi_label_targets.float())
 
                 loss.backward()
@@ -124,7 +128,9 @@ class ACM_trainer:
 
         print(f"Training completed. Model saved at {path} Finetuning thresholds")
         y_true, y_pred_probs = self.evaluate(self.val_loader, return_lists=True)
-        self.model.thresholds = self.fine_tune_thresholds(y_true, y_pred_probs)
+        self.model.thresholds = self.fine_tune_thresholds(
+            y_true, y_pred_probs, num_classes=self.num_classes
+        )
         print(f"Threshold finetunig completed:{self.model.thresholds}")
 
     def evaluate(
@@ -145,14 +151,12 @@ class ACM_trainer:
         with torch.no_grad():
             for (
                 clip_features,
-                _,
-                _,
+                target_features,
                 multi_label_targets,
                 _,
-                _,
-                _,
-            ) in data_loader:
+            ) in tqdm(data_loader):
                 clip_features = clip_features.to(self.device)
+                target_features = target_features.to(self.device)
                 multi_label_targets = (
                     torch.stack(multi_label_targets).transpose(0, 1).to(self.device)
                 )
@@ -161,7 +165,10 @@ class ACM_trainer:
                     torch.tensor(1, device=self.device),
                     multi_label_targets,
                 )
-                predictions = self.model.predict_aff_image_features(clip_features)
+                if self.args.ACM_features == "gt":
+                    predictions = self.model.predict_aff_image_features(target_features)
+                else:
+                    predictions = self.model.predict_aff_image_features(clip_features)
 
                 batch_size = clip_features.size(0)
                 total_samples += batch_size
@@ -220,7 +227,7 @@ class ACM_trainer:
         affordances = self.args.affordances
         for i, affordance in enumerate(affordances):
             precision = precision_score(
-                y_true[:, i], y_binary_list[:, i], zero_division=np.nan
+                y_true[:, i], y_pred[:, i], zero_division=np.nan
             )
             recall = recall_score(y_true[:, i], y_pred[:, i], zero_division=np.nan)
             f1 = f1_score(y_true[:, i], y_pred[:, i], zero_division=np.nan)
@@ -228,9 +235,13 @@ class ACM_trainer:
                 f"{affordance} - Precision: {precision:.4f}, Recall: {recall:.4f}, F1 Score: {f1:.4f}"
             )
 
-    def print_aff(self, predictions):
+    def print_aff(self, predictions, prnt=True):
+        dict = {}
         for affordance, prediction in zip(self.args.affordances, predictions):
-            print(f"{affordance}: {prediction:.2f}")
+            if prnt:
+                print(f"{affordance}: {prediction:.2f}")
+            dict[affordance] = prediction
+        return dict
 
     def fine_tune_thresholds(
         self, y_true, y_pred_probs, num_classes=10, step_size=0.01
@@ -240,7 +251,7 @@ class ACM_trainer:
 
         for i in range(num_classes):
             best_f1 = -1
-            best_threshold = 3.0
+            best_threshold = 0.3
             for threshold in np.arange(0.3, 0.9 + step_size, step_size):
                 y_pred_binary = (y_pred_probs[:, i] > threshold).astype(int)
                 f1 = f1_score(y_true[:, i], y_pred_binary, average="macro")
@@ -250,3 +261,35 @@ class ACM_trainer:
             best_thresholds[i] = best_threshold
 
         return torch.tensor(best_thresholds).to(self.args.device)
+
+    def extract_examples(self, dataloader):
+        with torch.no_grad():
+            for (
+                clip_features,
+                _,
+                multi_label_targets,
+                metadata,
+            ) in dataloader:
+
+                clip_features = clip_features.to(self.device)
+                multi_label_targets = (
+                    torch.stack(multi_label_targets).transpose(0, 1).to(self.device)
+                )
+                multi_label_targets = torch.where(
+                    multi_label_targets >= 1,
+                    torch.tensor(1, device=self.device),
+                    multi_label_targets,
+                )
+                predictions = self.model.predict_aff_image_features(clip_features)
+                predictions_dict = [
+                    self.print_aff(prediction, prnt=False)
+                    for prediction in predictions[:15]
+                ]
+                image_paths = metadata["image_path"][:15]
+                output_path = "output_image_grid.jpg"
+                create_image_grid(image_paths, predictions_dict, output_path)
+                for i, path in enumerate(metadata["image_path"]):
+                    print(f"path: {path}")
+                    dict_aff = self.print_aff(predictions[i])
+                    add_text_to_image(path, "test.jpg", dict_aff)
+                    breakpoint()

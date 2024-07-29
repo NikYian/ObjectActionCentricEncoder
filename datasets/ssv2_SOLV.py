@@ -38,7 +38,7 @@ class SSV2(data.Dataset):
         self.video_lengths = []
         # self.split_name = []
 
-        json_fname = split + "_videos.json"
+        json_fname = split + "_videos_.json"
 
         json_path = os.path.join(self.root, json_fname)
         videos = json.load(open(json_path))
@@ -94,7 +94,7 @@ class SSV2(data.Dataset):
             key=lambda x: int(x.split("/")[-1].split(".")[0]),
         )
         frame_num = len(img_list)
-        target_frame_path = img_list[2]
+
         input_frames = torch.zeros(
             (2 * self.N + 1, 3, self.resize_to[0], self.resize_to[1]), dtype=torch.float
         )
@@ -111,6 +111,8 @@ class SSV2(data.Dataset):
 
             frame = self.transform(frame_raw)
             input_frames[i] = frame
+            if frame_order == 0:
+                target_frame_path = img_list[frame_idx_real]
         original_height, original_width = self.to_tensor(frame_raw).shape[1:]
         new_height, new_width = self.resize_to
         scale_factor_height = new_height / original_height
@@ -146,7 +148,7 @@ class SSV2(data.Dataset):
 
         affordance_label = self.sa_labels[video_id]["affordance"]
         multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
-        multi_label_aff[affordance_label] = 4
+        # multi_label_aff[affordance_label] = 2
         # sa_labels = self.sa_labels[video_id]
         # bb = torch.tensor(bb)
         multi_label_aff = torch.tensor(multi_label_aff)
@@ -161,107 +163,107 @@ class SSV2(data.Dataset):
         )
 
 
-class SSV2_features(data.Dataset):
-    def __init__(self, args, split, sa_labels):
-        self.root = args.root
-        self.sa_labels = sa_labels
+# class SSV2_features(data.Dataset):
+#     def __init__(self, args, split, sa_labels):
+#         self.root = args.root
+#         self.sa_labels = sa_labels
 
-        # === Get Video Names and Lengths ===
-        self.dataset_list = []
+#         # === Get Video Names and Lengths ===
+#         self.dataset_list = []
 
-        json_fname = split + "_videos.json"
+#         json_fname = split + "_videos.json"
 
-        json_path = os.path.join(self.root, json_fname)
-        videos = json.load(open(json_path))
+#         json_path = os.path.join(self.root, json_fname)
+#         videos = json.load(open(json_path))
 
-        for video in videos:
+#         for video in videos:
 
-            self.dataset_list.append(video["id"])
+#             self.dataset_list.append(video["id"])
 
-    def transform(self, image):
+#     def transform(self, image):
 
-        # image, _ = remove_borders(image)
+#         # image, _ = remove_borders(image)
 
-        image = self.resize(image)
-        image = self.to_tensor(image)
-        image = self.normalize(image)
+#         image = self.resize(image)
+#         image = self.to_tensor(image)
+#         image = self.normalize(image)
 
-        return image
+#         return image
 
-    def create_frame_path(self, video_id: str, frame_index: int) -> str:
-        frame_str = f"{frame_index:04d}"
-        return f"{video_id}/{frame_str}.jpg"
+#     def create_frame_path(self, video_id: str, frame_index: int) -> str:
+#         frame_str = f"{frame_index:04d}"
+#         return f"{video_id}/{frame_str}.jpg"
 
-    def get_rgb(self, idx):
-        video_id, frame_idx, bb = self.mapping[idx]
-        img_dir = os.path.join(self.root, "jpg", video_id)
-        img_list = sorted(
-            glob(os.path.join(img_dir, "*.jpg")),
-            key=lambda x: int(x.split("/")[-1].split(".")[0]),
-        )
-        frame_num = len(img_list)
-        target_frame_path = img_list[2]
-        input_frames = torch.zeros(
-            (2 * self.N + 1, 3, self.resize_to[0], self.resize_to[1]), dtype=torch.float
-        )
-        mask = torch.ones(2 * self.N + 1)
+#     def get_rgb(self, idx):
+#         video_id, frame_idx, bb = self.mapping[idx]
+#         img_dir = os.path.join(self.root, "jpg", video_id)
+#         img_list = sorted(
+#             glob(os.path.join(img_dir, "*.jpg")),
+#             key=lambda x: int(x.split("/")[-1].split(".")[0]),
+#         )
+#         frame_num = len(img_list)
+#         target_frame_path = img_list[2]
+#         input_frames = torch.zeros(
+#             (2 * self.N + 1, 3, self.resize_to[0], self.resize_to[1]), dtype=torch.float
+#         )
+#         mask = torch.ones(2 * self.N + 1)
 
-        for i, frame_order in enumerate(self.relative_orders):
-            frame_idx_real = frame_idx + frame_order
+#         for i, frame_order in enumerate(self.relative_orders):
+#             frame_idx_real = frame_idx + frame_order
 
-            if frame_idx_real < 0 or frame_idx_real >= frame_num:
-                mask[i] = 0
-                continue
+#             if frame_idx_real < 0 or frame_idx_real >= frame_num:
+#                 mask[i] = 0
+#                 continue
 
-            frame_raw = Image.open(img_list[frame_idx_real]).convert("RGB")
+#             frame_raw = Image.open(img_list[frame_idx_real]).convert("RGB")
 
-            frame = self.transform(frame_raw)
-            input_frames[i] = frame
-        original_height, original_width = self.to_tensor(frame_raw).shape[1:]
-        new_height, new_width = self.resize_to
-        scale_factor_height = new_height / original_height
-        scale_factor_width = new_width / original_width
-        # Scale bounding box
-        left, upper, right, lower = bb
-        scaled_left = floor(left * scale_factor_width)
-        scaled_upper = floor(upper * scale_factor_height)
-        scaled_right = ceil(right * scale_factor_width)
-        scaled_lower = ceil(lower * scale_factor_height)
-        bb = (scaled_left, scaled_upper, scaled_right, scaled_lower)
-        bb_mask = torch.zeros((new_height, new_width), dtype=torch.bool)
-        bb_mask[scaled_upper:scaled_lower, scaled_left:scaled_right] = True
+#             frame = self.transform(frame_raw)
+#             input_frames[i] = frame
+#         original_height, original_width = self.to_tensor(frame_raw).shape[1:]
+#         new_height, new_width = self.resize_to
+#         scale_factor_height = new_height / original_height
+#         scale_factor_width = new_width / original_width
+#         # Scale bounding box
+#         left, upper, right, lower = bb
+#         scaled_left = floor(left * scale_factor_width)
+#         scaled_upper = floor(upper * scale_factor_height)
+#         scaled_right = ceil(right * scale_factor_width)
+#         scaled_lower = ceil(lower * scale_factor_height)
+#         bb = (scaled_left, scaled_upper, scaled_right, scaled_lower)
+#         bb_mask = torch.zeros((new_height, new_width), dtype=torch.bool)
+#         bb_mask[scaled_upper:scaled_lower, scaled_left:scaled_right] = True
 
-        return input_frames, mask, video_id, frame_idx, bb_mask, target_frame_path
+#         return input_frames, mask, video_id, frame_idx, bb_mask, target_frame_path
 
-    def __len__(self):
-        return len(self.mapping)
+#     def __len__(self):
+#         return len(self.mapping)
 
-    def __getitem__(self, idx):
-        """
-        :return:
-            input_features: RGB frames [t-N, ..., t+N]
-                            in shape (2*N + 1, 3, H, W)
+#     def __getitem__(self, idx):
+#         """
+#         :return:
+#             input_features: RGB frames [t-N, ..., t+N]
+#                             in shape (2*N + 1, 3, H, W)
 
-            frame_masks: Mask for input_features indicating if frame is available
-                            in shape (2*N + 1)
-        """
+#             frame_masks: Mask for input_features indicating if frame is available
+#                             in shape (2*N + 1)
+#         """
 
-        (input_frames, frame_masks, video_id, frame_idx, bb_mask, target_frame_path) = (
-            self.get_rgb(idx)
-        )  # (2N + 1, 3, H, W), (2N + 1)
+#         (input_frames, frame_masks, video_id, frame_idx, bb_mask, target_frame_path) = (
+#             self.get_rgb(idx)
+#         )  # (2N + 1, 3, H, W), (2N + 1)
 
-        affordance_label = self.sa_labels[video_id]["affordance"]
-        multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
-        multi_label_aff[affordance_label] = 4
-        # sa_labels = self.sa_labels[video_id]
-        # bb = torch.tensor(bb)
-        multi_label_aff = torch.tensor(multi_label_aff)
-        return (
-            input_frames,
-            frame_masks,
-            video_id,
-            frame_idx,
-            multi_label_aff,
-            bb_mask,
-            target_frame_path,
-        )
+#         affordance_label = self.sa_labels[video_id]["affordance"]
+#         multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
+#         multi_label_aff[affordance_label] = 2
+#         # sa_labels = self.sa_labels[video_id]
+#         # bb = torch.tensor(bb)
+#         multi_label_aff = torch.tensor(multi_label_aff)
+#         return (
+#             input_frames,
+#             frame_masks,
+#             video_id,
+#             frame_idx,
+#             multi_label_aff,
+#             bb_mask,
+#             target_frame_path,
+#         )

@@ -147,14 +147,17 @@ class Args(argparse.Namespace):
     }
 
     # AcE arguments
-    image_features = "mae"  # "mae" or "clip"
-    AcE_epochs = 30
+
+    AcE_epochs = 20
     head = "MLP"  # "MLP" or "Hopfield"
+
     AcE_checkpoint = "runs/AcE_MLP.pth"
-    SOLV_AcE_checkpoint = "runs/SOLV_AcE.pth"
+    image_features = "mae"  # "mae" or "clip"
+
     ACM_type = "Hopfield"  # "MLP" or "Hopfield"
-    ACM_checkpoint = None  # "runs/ACM_Hopfield_combo.pth"
-    ACM_features = "combo"  # "image", "AcE", "combo"
+    ACM_features = "gt"  # "image", "AcE", "combo", "gt"
+    ACM_checkpoint = None  # "runs/ACM_Hopfield_mae_AcE.pth"
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     CLIP_model = "ViT-B/32"
     split_ratios = [0.4, 0.3, 0.3]
@@ -163,6 +166,8 @@ class Args(argparse.Namespace):
     AcE_feature_size = 384
     AcE_hidden_size = 1024
     AcE_hidden_layers = [1024]
+
+    SOLV_AcE_checkpoint = "runs/SOLV_AcE.pth"
     # AcE_hidden_layers = [
     #     500,
     #     600,
@@ -178,8 +183,8 @@ class Args(argparse.Namespace):
     #     400,
     #     300,
     # ]
-    AcE_criterion = "MSE"  # "MSE" or "SmoothL1Loss"
-    AcE_lr = 1e-4
+    AcE_criterion = "SmoothL1Loss"  # "MSE" or "SmoothL1Loss"
+    AcE_lr = 1e-3
     AcE_weight_decay = 10e-6
 
     teacher_head_checkpoint = "checkpoints/teacher_head_4.pth"
@@ -208,10 +213,10 @@ class Args(argparse.Namespace):
         # [ss class, object that is characterized by the action, affordance]
         2: ["Bending something so that it deforms", "object 0", "bendable"],
         3: ["Bending something until it breaks", "object 0", "bendable"],
-        4: ["Burying something in something", "object 1", "burry in/cover with"],
+        # 4: ["Burying something in something", "object 1", "burry in/cover with"],
         5: ["Closing something", "object 0", "openable/closable"],
-        6: ["Covering something with something", "object 1", "burry in/cover with"],
-        7: ["Digging something out of something", "object 1", "burry in/cover with"],
+        # 6: ["Covering something with something", "object 1", "burry in/cover with"],
+        # 7: ["Digging something out of something", "object 1", "burry in/cover with"],
         14: ["Folding something", "object 0", "foldable"],
         22: ["Letting something roll along a flat surface", "object 0", "rollable"],
         23: ["Letting something roll down a slanted surface", "object 0", "rollable"],
@@ -221,12 +226,12 @@ class Args(argparse.Namespace):
             "rollable",
         ],
         46: ["Opening something", "object 0", "openable/closable"],
-        49: ["Plugging something into something", "object 1", "plug into"],
-        50: [
-            "Plugging something into something but pulling it right out as you remove your hand",
-            "object 1",
-            "plug into",
-        ],
+        # 49: ["Plugging something into something", "object 1", "plug into"],
+        # 50: [
+        #     "Plugging something into something but pulling it right out as you remove your hand",
+        #     "object 1",
+        #     "plug into",
+        # ],
         # 51: ["Poking a hole into some substance", "object 0", "poke hole"],
         # 52: ["Poking a hole into something soft", "object 0", "poke hole"],
         59: ["Pouring something into something", "object 1", "containment"],
@@ -261,16 +266,16 @@ class Args(argparse.Namespace):
         #     "object 0",
         #     "pull ends to separate",
         # ],
-        115: [
-            "Putting something that can't roll onto a slanted surface, so it slides down",
-            "object 0",
-            "can't roll/slide",
-        ],
-        116: [
-            "Putting something that can't roll onto a slanted surface, so it stays where it is",
-            "object 0",
-            "can't roll/slide",
-        ],
+        # 115: [
+        #     "Putting something that can't roll onto a slanted surface, so it slides down",
+        #     "object 0",
+        #     "can't roll/slide",
+        # ],
+        # 116: [
+        #     "Putting something that can't roll onto a slanted surface, so it stays where it is",
+        #     "object 0",
+        #     "can't roll/slide",
+        # ],
         122: [
             "Rolling something on a flat surface",
             "object 0",
@@ -300,14 +305,14 @@ class Args(argparse.Namespace):
     }
 
     affordances = [
-        "bendable",
+        # "bendable",
         "foldable",
-        "openable/closable",
+        # "openable/closable",
         "rollable",
-        "can't roll/slide",
+        # "can't roll/slide",
         "squeezable",
         "containment",
         "tearable",
-        "plug into",
-        "burry in/cover with",
+        # "plug into",
+        # "burry in/cover with",
     ]

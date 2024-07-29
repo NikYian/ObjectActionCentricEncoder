@@ -23,6 +23,7 @@ def prepare_model(chkpt_dir, arch="mae_vit_base_patch16"):
 class ClassificationHead(nn.Module):
     def __init__(self, input_size, num_classes=10, nn_type="MLP"):
         super(ClassificationHead, self).__init__()
+        self.type = nn_type
         if nn_type == "MLP":
             self.classifiers = nn.ModuleList(
                 [
@@ -39,7 +40,7 @@ class ClassificationHead(nn.Module):
                         HopfieldLayer(
                             input_size=input_size,
                             quantity=100,
-                            num_heads=1,
+                            num_heads=4,
                             hidden_size=input_size,
                             stored_pattern_size=input_size,
                             pattern_projection_size=input_size,
@@ -57,8 +58,16 @@ class ClassificationHead(nn.Module):
             )
 
     def forward(self, x):
-        outputs = [classifier(x) for classifier in self.classifiers]
-        return torch.cat(outputs, dim=-1)
+        # outputs = [classifier(x) for classifier in self.classifiers]
+        # return torch.cat(outputs, dim=-1)
+        if type == "MLP":
+            outputs = [classifier(x) for classifier in self.classifiers]
+            return torch.cat(outputs, dim=-1)
+        else:
+            outputs = [
+                classifier(x.unsqueeze(0)).squeeze(0) for classifier in self.classifiers
+            ]
+            return torch.cat(outputs, dim=-1)
 
 
 class AcEnn(nn.Module):
@@ -75,7 +84,8 @@ class AcEnn(nn.Module):
         self.ACM_features = ACM_features
         self.image_features = image_features
         self.args = args
-        self.thresholds = torch.tensor([0.5] * 10).to(args.device)
+        self.class_num = len(self.args.affordances)
+        self.thresholds = torch.tensor([0.5] * self.class_num).to(args.device)
 
         self.head_type = head
         if image_features == "clip":
@@ -133,15 +143,20 @@ class AcEnn(nn.Module):
 
         if ACM_features == "image":
             self.classification_head = ClassificationHead(
-                input_size=self.image_features_dim, nn_type=args.ACM_type
+                input_size=self.image_features_dim,
+                nn_type=args.ACM_type,
+                num_classes=self.class_num,
             )
-        elif ACM_features == "AcE":
+        elif ACM_features in ["AcE", "gt"]:
             self.classification_head = ClassificationHead(
-                input_size=args.AcE_feature_size, nn_type=args.ACM_type
+                input_size=args.AcE_feature_size,
+                nn_type=args.ACM_type,
+                num_classes=self.class_num,
             )
         elif ACM_features == "combo":
             self.classification_head = ClassificationHead(
                 input_size=args.AcE_feature_size + self.image_features_dim,
+                num_classes=self.class_num,
                 nn_type=args.ACM_type,
             )
         trainable_params = sum(
@@ -183,27 +198,27 @@ class AcEnn(nn.Module):
         return AcE_features
 
     def predict_aff_image_features(self, features):
-        if self.ACM_features == "image":
-            if self.args.ACM_type == "Hopfield":
-                predictions = self.classification_head(
-                    features.detach().float().unsqueeze(0)
-                ).squeeze(0)
-            else:
-                predictions = self.classification_head(features.detach().float())
+        if self.ACM_features in ["image", "gt"]:
+            # if self.args.ACM_type == "Hopfield":
+            #     predictions = self.classification_head(
+            #         features.detach().float().unsqueeze(0)
+            #     ).squeeze(0)
+            # else:
+            predictions = self.classification_head(features.detach().float())
         elif self.ACM_features == "AcE":
-            if self.args.ACM_type == "Hopfield":
-                features = self.forward_image_features(features).detach().unsqueeze(0)
-                predictions = self.classification_head(features).squeeze(0)
-            else:
-                features = self.forward_image_features(features).detach()
-                predictions = self.classification_head(features)
+            # if self.args.ACM_type == "Hopfield":
+            #     features = self.forward_image_features(features).detach().unsqueeze(0)
+            #     predictions = self.classification_head(features).squeeze(0)
+            # else:
+            features = self.forward_image_features(features).detach()
+            predictions = self.classification_head(features)
         elif self.ACM_features == "combo":
-            if self.args.ACM_type == "Hopfield":
-                AcE_features = self.forward_image_features(features).detach()
-                features = torch.cat((AcE_features, features), dim=1).unsqueeze(0)
-                predictions = self.classification_head(features).squeeze(0)
-            else:
-                AcE_features = self.forward_image_features(features).detach()
-                features = torch.cat((AcE_features, features), dim=1)
-                predictions = self.classification_head(features)
+            # if self.args.ACM_type == "Hopfield":
+            #     AcE_features = self.forward_image_features(features).detach()
+            #     features = torch.cat((AcE_features, features), dim=1).unsqueeze(0)
+            #     predictions = self.classification_head(features).squeeze(0)
+            # else:
+            AcE_features = self.forward_image_features(features).detach()
+            features = torch.cat((AcE_features, features), dim=1)
+            predictions = self.classification_head(features)
         return predictions

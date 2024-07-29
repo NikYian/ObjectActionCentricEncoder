@@ -88,19 +88,13 @@ def train_epoch(
         output_features = output_features.to(torch.float32)
 
         reconstruction = SOLV_model(output_features, input_masks, token_indices)
-        # slots_AcE = AcE_model(reconstruction["target_frame_slots"].detach())
+        slots_AcE = AcE_model(reconstruction["target_frame_slots"].detach())
         # new_slots, new_patch_attn, slot_nums = SOLV_model.merge(
-        #     slots_AcE, reconstruction["sbind_attn"]
+        #     slots_AcE, reconstruction["attn"]
         # )
         new_slots, new_patch_attn, slot_nums = SOLV_model.merge(
-            reconstruction["target_frame_slots"].detach(), reconstruction["sbind_attn"]
+            reconstruction["target_frame_slots"].detach(), reconstruction["attn"]
         )
-        slots_AcE = AcE_model(new_slots)
-        # new_slots, new_patch_attn, slot_nums = (
-        #     reconstruction["slots"],
-        #     reconstruction["attn"],
-        #     reconstruction["slot_nums"],
-        # )
 
         S = new_patch_attn.shape[1]
         masks = new_patch_attn.view(
@@ -123,20 +117,12 @@ def train_epoch(
         labels = []
         inputs = []
 
-        # concatenated_input = torch.cat((new_slots, new_patch_attn), dim=2)
-        # concatenated_input = new_slots
-        concatenated_input = torch.cat((new_slots, slots_AcE), dim=2)
-        # concatenated_input = (new_slots + slots_AcE) / 2
-
+        concatenated_input = torch.cat((new_slots, new_patch_attn), dim=2)
         for i, slot_num in enumerate(slot_nums):
             non_object_slot_num = 1
             for j in range(slot_num):
                 if j == slots_of_interacting_object[i]:
-                    indices_to_remove = [0, 2]
-                    mask = torch.ones(multi_label_aff[i].size(0), dtype=torch.bool)
-                    mask[indices_to_remove] = False
-                    ml_5 = multi_label_aff[i][mask]
-                    labels.append(ml_5)
+                    labels.append(multi_label_aff[i])
                     inputs.append(concatenated_input[i][j])
                 elif non_object_slot_num > 0:
                     non_object_slot_num -= 1
@@ -152,7 +138,7 @@ def train_epoch(
         total_loss += loss.item()
         loss.backward()
         ACM["optimizer"].step()
-        ACM["scheduler"].step()
+        # ACM["scheduler"].step()
         lr = ACM["optimizer"].state_dict()["param_groups"][0]["lr"]
         mean_loss = total_loss / (iter + 1)
         loader.set_description(f"lr: {lr:.6f} | loss: {mean_loss:.5f}")
@@ -218,7 +204,7 @@ def val_epoch(
 
         with torch.cuda.amp.autocast(True):
 
-            output_features, token_indices = vis_encoder(frames, get_gt=True)
+            output_features, token_indices = vis_encoder(frames, get_gt=False)
 
             assert (
                 output_features.isnan().any() == False
@@ -227,20 +213,13 @@ def val_epoch(
         output_features = output_features.to(torch.float32)
 
         reconstruction = SOLV_model(output_features, input_masks, token_indices)
-        # slots_AcE = AcE_model(reconstruction["target_frame_slots"].detach())
+        slots_AcE = AcE_model(reconstruction["target_frame_slots"].detach())
         # new_slots, new_patch_attn, slot_nums = SOLV_model.merge(
-        #     slots_AcE, reconstruction["sbind_attn"]
+        #     slots_AcE, reconstruction["attn"]
         # )
         new_slots, new_patch_attn, slot_nums = SOLV_model.merge(
-            reconstruction["target_frame_slots"].detach(), reconstruction["sbind_attn"]
+            reconstruction["target_frame_slots"].detach(), reconstruction["attn"]
         )
-        slots_AcE = AcE_model(new_slots)
-
-        # new_slots, new_patch_attn, slot_nums = (
-        #     reconstruction["slots"],
-        #     reconstruction["attn"],
-        #     reconstruction["slot_nums"],
-        # )
         S = new_patch_attn.shape[1]
         masks = new_patch_attn.view(
             -1, S, H // SOLV_args.patch_size, W // SOLV_args.patch_size
@@ -262,22 +241,16 @@ def val_epoch(
 
         labels = []
         inputs = []
-        # concatenated_input = torch.cat((new_slots, new_patch_attn), dim=2)
-        # concatenated_input = new_slots
-        concatenated_input = torch.cat((new_slots, slots_AcE), dim=2)
-        # concatenated_input = (new_slots + slots_AcE) / 2
+        concatenated_input = torch.cat((new_slots, new_patch_attn), dim=2)
+
         for i, slot_num in enumerate(slot_nums):
             for j in range(slot_num):
                 if j == slots_of_interacting_object[i]:
-                    indices_to_remove = [0, 2]
-                    mask = torch.ones(multi_label_aff[i].size(0), dtype=torch.bool)
-                    mask[indices_to_remove] = False
-                    ml_5 = multi_label_aff[i][mask]
-                    labels.append(ml_5)
+                    labels.append(multi_label_aff[i])
                     inputs.append(concatenated_input[i][j])
-                # else:
-                #     labels.append(torch.zeros(5, dtype=int).cuda(non_blocking=True))
-                #     inputs.append(concatenated_input[i][j])
+                else:
+                    labels.append(torch.zeros(5, dtype=int).cuda(non_blocking=True))
+                    inputs.append(concatenated_input[i][j])
         labels = torch.stack(labels).detach()
         inputs = torch.stack(inputs).detach()
         aff_predictions = ACM["model"](inputs).detach()
@@ -299,10 +272,7 @@ def val_epoch(
                 mask_labels = [f"Slot_{i}" for i in range(masks_.shape[2])]
                 cmap = plt.cm.tab20(np.arange(len(mask_labels)))[..., :-1]
                 slots = concatenated_input[i][: len(unique_values)]
-                aff_predictions = ACM["model"](slots).detach()
-                aff_predictions = (
-                    (aff_predictions > ACM["thresholds"]).int().cpu().numpy()
-                )
+                aff_predictions = ACM["model"](slots).detach().cpu().numpy()
                 aff = AcE_args.affordances
                 df = pd.DataFrame(aff_predictions, columns=aff).round(3).astype(str)
                 df.index = mask_labels
@@ -322,7 +292,6 @@ def val_epoch(
                 fig_table.update_layout(
                     autosize=False, width=1000, height=200, font={"size": 9}
                 )
-
                 fig_table.write_image("table.png", scale=5)
                 fig.savefig("test.png", dpi=300)
                 plt.close()
@@ -349,13 +318,8 @@ def val_epoch(
             y_true, y_pred_probs, num_classes=5
         )
         print(ACM["tresholds"])
-
         y_pred_probs_rounded = np.round(y_pred_probs[:10], 3)
         print(y_pred_probs_rounded)
-        print(y_true[:10])
-        f1 = f1_score(y_true, y_binary_list, average="micro")
-        print(f"f1 = {f1}")
-        print(slot_nums)
 
     if ret == "f1":
         return f1_score(y_true, y_binary_list, average="micro")
@@ -374,7 +338,6 @@ def main_worker(SOLV_args, AcE_args):
 
     vis_encoder = Visual_Encoder(SOLV_args).to(device)
     SOLV_model = SOLV_nn(SOLV_args).to(device)
-    IO_classifier = MLP
     AcE_model = MLP(
         SOLV_args.slot_dim,
         4 * SOLV_args.slot_dim,
@@ -406,24 +369,15 @@ def main_worker(SOLV_args, AcE_args):
     for param in AcE_model.parameters():  # SOLV params are frozen
         param.requires_grad = False
 
-    # ACM_model = ClassificationHead(
-    #     992, num_classes=len(AcE_args.affordances), nn_type="hop"
-    # ).to(device)
-
-    # ACM_model = ClassificationHead(
-    #     128, num_classes=len(AcE_args.affordances), nn_type="hop"
-    # ).to(device)
-
     ACM_model = ClassificationHead(
-        256, num_classes=len(AcE_args.affordances), nn_type="hop"
+        992, num_classes=len(AcE_args.affordances), nn_type="hop"
     ).to(device)
-
-    checkpoint = torch.load("runs/SOLV_ACM_hop.pth")
-    msg = ACM_model.load_state_dict(checkpoint)
-    print(msg)
+    # checkpoint = torch.load("runs/SOLV_ACM_hop.pth")
+    # msg = ACM_model.load_state_dict(checkpoint)
+    # print(msg)
     # === Training Items ===
     optimizer = torch.optim.Adam(utils.get_params_groups(ACM_model), lr=AcE_args.AcE_lr)
-    scheduler = utils.get_scheduler(AcE_args.AcE_epochs, optimizer, train_dataloader)
+    # scheduler = utils.get_scheduler(SOLV_args, optimizer, train_dataloader)
     trainer = ACM_trainer(
         AcE_args,
         None,
@@ -438,7 +392,7 @@ def main_worker(SOLV_args, AcE_args):
     ACM = {
         "model": ACM_model,
         "optimizer": optimizer,
-        "scheduler": scheduler,
+        # "scheduler": scheduler,
         "criterion": AcE_utils.get_criterion(AcE_args),
         "trainer": trainer,
         "thresholds": torch.tensor([0.5] * 5).to(AcE_args.device),
@@ -449,58 +403,47 @@ def main_worker(SOLV_args, AcE_args):
     total_iter = 0
     best_val_acc = val_acc = 0
 
-    # for epoch in range(0, AcE_args.AcE_epochs):
-    #     # train_dataloader.sampler.set_epoch(epoch)
+    for epoch in range(0, AcE_args.AcE_epochs):
+        # train_dataloader.sampler.set_epoch(epoch)
 
-    #     print(f"===== ===== [Epoch {epoch}] ===== =====")
+        print(f"===== ===== [Epoch {epoch}] ===== =====")
 
-    #     mean_loss, total_iter = train_epoch(
-    #         SOLV_args,
-    #         vis_encoder,
-    #         SOLV_model,
-    #         train_dataloader,
-    #         total_iter,
-    #         writer,
-    #         AcE_model,
-    #         ACM,
-    #     )
-    #     if True:
-    #         (val_acc, y_true, y_pred_probs, y_binary_list) = val_epoch(
-    #             SOLV_args,
-    #             vis_encoder,
-    #             SOLV_model,
-    #             val_dataloader,
-    #             total_iter,
-    #             writer,
-    #             AcE_model,
-    #             ACM,
-    #         )
-    #         if val_acc > best_val_acc:
-    #             best_val_acc = val_acc
+        mean_loss, total_iter = train_epoch(
+            SOLV_args,
+            vis_encoder,
+            SOLV_model,
+            train_dataloader,
+            total_iter,
+            writer,
+            AcE_model,
+            ACM,
+        )
+        if True:
+            (val_acc, y_true, y_pred_probs, y_binary_list) = val_epoch(
+                SOLV_args,
+                vis_encoder,
+                SOLV_model,
+                val_dataloader,
+                total_iter,
+                writer,
+                AcE_model,
+                ACM,
+            )
+            if val_acc > best_val_acc:
+                best_val_acc = val_acc
 
-    #         print(f"val acc: {val_acc} | best val acc: {best_val_acc}")
+            print(f"val acc: {val_acc} | best val acc: {best_val_acc}")
 
-    #     path = os.path.join(AcE_args.log_dir, "SOLV_ACM_hop.pth")
-    #     torch.save(
-    #         ACM["model"].state_dict(),
-    #         path,
-    #     )
+        path = os.path.join(AcE_args.log_dir, "SOLV_ACM_hop.pth")
+        torch.save(
+            ACM["model"].state_dict(),
+            path,
+        )
 
-    #     # === Log ===
-    #     writer.add_scalar("epoch/train-lsoss", mean_loss, epoch)
-    #     writer.flush()
-    #     writer.close()
-
-    (val_acc, y_true, y_pred_probs, y_binary_list) = val_epoch(
-        SOLV_args,
-        vis_encoder,
-        SOLV_model,
-        val_dataloader,
-        total_iter,
-        writer,
-        AcE_model,
-        ACM,
-    )
+        # === Log ===
+        writer.add_scalar("epoch/train-lsoss", mean_loss, epoch)
+        writer.flush()
+        writer.close()
 
     (accuracy, y_true, y_pred_probs, y_binary_list) = val_epoch(
         SOLV_args,

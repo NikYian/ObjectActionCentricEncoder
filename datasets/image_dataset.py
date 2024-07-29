@@ -72,6 +72,7 @@ class ImageFeaturesDataset(Dataset):
 
         self.feature_ids = feature_ids
         self.sample_paths = [self.feature_path(id) for id in feature_ids]
+        self.image_paths = [self.image_path(id) for id in feature_ids]
         self.video_ids = [id.split("/")[0] for id in feature_ids]
         self.target_paths = [self.VAE_feature_path(id) for id in self.video_ids]
         print("checking availability of all samples")
@@ -89,35 +90,33 @@ class ImageFeaturesDataset(Dataset):
         self.sa_labels = sa_labels
 
     def __getitem__(self, index):
+        metadata = {}
         sample_path = self.sample_paths[index]
         video_id = self.video_ids[index]
-        target_path = self.target_paths[index]
-        sample_type = self.feature_ids[index].split(".")[0][-1]
-        # video_id = self.image_ids[index].split("/")[0]
+        metadata["video_id"] = video_id
+        metadata["image_path"] = self.image_paths[index]
+        metadata["sample_type"] = self.feature_ids[index].split(".")[0][-1]
         clip_features = np.load(sample_path)
-
+        target_path = self.target_paths[index]
         target_features = np.load(target_path)
         affordance_label = self.sa_labels[video_id]["affordance"]
-        # affordance_sentense = self.args.affordance_sentences[affordance_label]
+        metadata["affordance_label"] = affordance_label
         multi_label_aff = self.sa_labels[video_id]["affordance_labels"]
         multi_label_aff[affordance_label] = 2
-        object = self.sa_labels[video_id]["object"]
+        metadata["object"] = self.sa_labels[video_id]["object"]
 
-        return (
-            clip_features,
-            target_features,
-            affordance_label,
-            multi_label_aff,
-            sample_type,
-            sample_path,
-            object,
-        )
+        return (clip_features, target_features, multi_label_aff, metadata)
 
     def __len__(self):
         return len(self.sample_paths)
 
     def feature_path(self, feature_id):
         return os.path.join(self.args.image_featrures_dir, feature_id)
+
+    def image_path(self, feature_id):
+        base_name = feature_id.split(".")[0] + ".jpg"
+        full_path = os.path.join(self.args.obj_crop_dir, base_name)
+        return full_path
 
     def VAE_feature_path(self, video_id):
         fname = video_id + ".npy"

@@ -32,7 +32,7 @@ def generate_boolean_masks(mask):
     boolean_masks = []
     for value in unique_values:
         boolean_masks.append(mask == value)
-    return np.stack(boolean_masks, -1)
+    return np.stack(boolean_masks, -1), unique_values
 
 
 class SubsetRandomSampler(torch.utils.data.Sampler):
@@ -91,8 +91,8 @@ def restart_from_checkpoint(
                 run_variables[var_name] = checkpoint[var_name]
 
 
-def get_scheduler(args, optimizer, train_loader):
-    T_max = len(train_loader) * args.num_epochs
+def get_scheduler(num_epochs, optimizer, train_loader):
+    T_max = len(train_loader) * num_epochs
     warmup_steps = int(T_max * 0.05)
     steps = T_max - warmup_steps
     gamma = math.exp(math.log(0.5) / (steps // 3))
@@ -138,19 +138,14 @@ def get_dataloaders(args):
         test_dataset = ssv2_SOLV.SSV2(args, "test", sa_labels)
     else:
         print("Not available dataset")
-
-    train_sampler = SubsetRandomSampler(train_dataset, subset_ratio=1)
-    val_sampler = SubsetRandomSampler(val_dataset, subset_ratio=1)
-    test_sampler = SubsetRandomSampler(test_dataset, subset_ratio=1)
-
-    # train_sampler = torch.utils.data.DistributedSampler(
-    #     train_dataset, num_replicas=args.gpus, rank=args.gpu, shuffle=True
-    # )
+    train_sampler = SubsetRandomSampler(train_dataset, subset_ratio=0.001)
+    val_sampler = SubsetRandomSampler(val_dataset, subset_ratio=0.001)
+    test_sampler = SubsetRandomSampler(test_dataset, subset_ratio=0.01)
     train_dataloader = torch.utils.data.DataLoader(
         train_dataset,
         sampler=train_sampler,
         batch_size=args.batch_size,
-        num_workers=5,  # cpu per gpu
+        num_workers=3,  # cpu per gpu
         drop_last=True,
         pin_memory=True,
     )
@@ -160,7 +155,7 @@ def get_dataloaders(args):
         batch_size=args.batch_size,
         sampler=val_sampler,
         shuffle=False,
-        num_workers=5,
+        num_workers=3,
         drop_last=False,
         pin_memory=True,
     )
@@ -170,7 +165,7 @@ def get_dataloaders(args):
         batch_size=args.batch_size,
         sampler=test_sampler,
         shuffle=False,
-        num_workers=5,
+        num_workers=3,
         drop_last=False,
         pin_memory=True,
     )
